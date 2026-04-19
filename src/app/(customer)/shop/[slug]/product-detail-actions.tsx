@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Minus, Plus, ShoppingCart } from "lucide-react";
-import type { Part } from "@/lib/mock/parts";
+import type { Part } from "@/lib/catalog/part";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/providers/cart-provider";
 
@@ -11,6 +11,8 @@ export function ProductDetailActions({ part }: { part: Part }) {
   const [qty, setQty] = React.useState(1);
 
   const disabled = part.stockStatus === "out_of_stock";
+  const maxQty =
+    typeof part.stockQty === "number" && part.stockQty > 0 ? part.stockQty : undefined;
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -34,8 +36,10 @@ export function ProductDetailActions({ part }: { part: Part }) {
           variant="ghost"
           size="icon"
           className="size-10 rounded-none"
-          disabled={disabled}
-          onClick={() => setQty((q) => q + 1)}
+          disabled={disabled || (maxQty != null && qty >= maxQty)}
+          onClick={() =>
+            setQty((q) => (maxQty != null ? Math.min(maxQty, q + 1) : q + 1))
+          }
           aria-label="Increase quantity"
         >
           <Plus className="size-4" />
@@ -46,7 +50,7 @@ export function ProductDetailActions({ part }: { part: Part }) {
         size="lg"
         className="sm:flex-1"
         disabled={disabled}
-        onClick={() => add(part, qty)}
+        onClick={() => void add(part, qty)}
       >
         <ShoppingCart className="size-4" />
         Add to cart

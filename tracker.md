@@ -6,7 +6,151 @@
 
 ## Current phase
 
-**Phase 13 — Admin UI shell (shadcn Sidebar, data table, auth shell)** (complete)
+**Phase 17 — Milestone preview catalog (local images)** — server-scanned `public/images/` category folders merged with PHP/MongoDB listings for screenshot-ready cards without replacing the real pipeline.
+
+---
+
+## Phase 17 — Preview products from `public/images/` (Apr 2026)
+
+- **What changed:** Added **`getPreviewPartsFromLocalImages()`** (`src/lib/catalog/preview-local-inventory.ts`, `server-only`) — reads **`Brake Pads`**, **`Air Filters`**, **`Batteries`**, **`Radiators`** under **`public/images/`** (case-insensitive match), skips **`brandlogos`**, builds **`Part`** rows from each image file (encoded **`/images/...`** paths, deterministic SAR-range pricing, **`stockQty`** + **`stockStatus`**, one-line descriptions, unique **`slug`** / **`id`**). **`mergePartsForHomeRow`** / **`mergePartsForShopCatalog`** (`src/lib/catalog/storefront-catalog.ts`): home **Latest arrivals** = up to **4** cards, **real API rows first** then previews to fill; shop uses **real-only** when **`published` count ≥ 8**, otherwise **pads** with non-colliding preview rows. **`Part.isPreviewCatalog`** + **`ProductCard`**: preview cards use **`object-contain`** thumbs, **`Details` → `/shop`** (no PDP 404). Home empty copy mentions preview image folders if both sources are empty.
+- **Files:** `src/lib/catalog/preview-local-inventory.ts`, `src/lib/catalog/storefront-catalog.ts`, `src/lib/catalog/part.ts`, `src/components/site/product-card.tsx`, `src/app/(customer)/page.tsx`, `src/app/(customer)/shop/page.tsx`, `README.md`, `tracker.md`
+- **Decisions:** Preview inventory is **explicitly temporary** (module header comments); **PHP catalog** remains source of truth for PDP/admin; **no** cart/checkout/auth changes. Shop merge threshold **8** is a simple constant for “enough real rows for a dense grid.”
+- **Remaining:** Delete preview helpers and merge calls when Mongo catalog is screenshot-ready end-to-end.
+
+---
+
+## Phase 16 — Brand strip (logos + motion) (Apr 2026)
+
+- **What changed:** **`BrandStrip`** now reads PNG/JPEG/SVG/WebP files from **`public/images/brandlogos/`** at build/request time (`getBrandLogoPublicPaths`), passes paths into a client **`BrandStrip`** that renders **`next/image`** in a duplicated track with **`brand-strip-scroll`** keyframes (`globals.css`). Shallow **`rotateX` / `rotateY`** + per-logo **`translateZ` / scale / opacity** for left→right depth. Edge **mask** retained. **`prefers-reduced-motion`:** static wrapped row, no marquee. Empty folder → dashed placeholder, no layout collapse.
+- **Files:** `src/components/site/brand-strip.tsx`, `src/lib/brand-logos-server.ts`, `src/lib/brand-logo-utils.ts`, `src/app/globals.css`, `src/app/(customer)/page.tsx`
+- **Decisions:** No visible text labels; **`sr-only`** from filename for a11y. **`coveredBrandMarks`** mock strip unused on home (file kept for reference).
+- **Remaining:** None for this milestone slice.
+
+---
+
+## Phase 15 — Real admin setup + product publish (Apr 2026)
+
+Single pass: seeded admins + categories, server-side admin protection, `me.php` DB validation, backend-driven categories, binary image upload to PHP `public/uploads`, home/shop publish alignment, documentation refresh.
+
+### Phase 15 — Admin auth / session
+
+- **What changed:** `auth/me.php` always returns **HTTP 200** + `{ authenticated, email? }`, validates Mongo admin id + **email match** + **`role === "admin"`**, clears stale session keys on mismatch. `auth/logout.php` requires **POST** (matches `AdminSessionProvider`). `gp_match_published_catalog()` centralizes storefront visibility (treat missing `published` as visible).
+- **Files:** `php/public/auth/me.php`, `php/public/auth/logout.php`, `php/include/app.php`, `php/public/catalog/products.php`, `php/public/catalog/related.php`, `src/providers/admin-session-provider.tsx`
+- **Decisions:** Guest admin check is a normal JSON state (not HTTP 401) so middleware and the client share one contract.
+- **Remaining:** Next 16 warns the **`middleware` → `proxy` migration** is upcoming upstream; current file follows the existing convention.
+
+### Phase 15 — Admin route protection
+
+- **What changed:** Added **`src/middleware.ts`** — forwards `Cookie` to **`PHP_BACKEND_URL/auth/me.php`** for every `/admin/*` route except **`/admin/login`**; redirects guests to login; redirects signed-in admins away from login toward dashboard. Keeps **`AdminAccessGate`** as client defense in depth.
+- **Files:** `src/middleware.ts`, `src/components/admin/admin-access-gate.tsx` (unchanged contract)
+- **Decisions:** RSC never renders protected admin chrome for anonymous users when PHP is reachable; if PHP is down, middleware sends users to login (fail closed for staff routes).
+- **Remaining:** Edge deployments must be able to reach the PHP origin configured in **`PHP_BACKEND_URL`**.
+
+### Phase 15 — Seed + categories collection
+
+- **What changed:** **`scripts/seed-admins.mjs`** now upserts default **`categories`** documents after admins. **`scripts/ensure-indexes.mjs`** adds unique index on **`categories.name`**. New **`catalog/categories.php`** merges **`categories`** + distinct **`products.category`**, with **`["General"]`** fallback. **`AdminProductForm`** loads options from that endpoint (shadcn **Select**).
+- **Files:** `scripts/seed-admins.mjs`, `scripts/ensure-indexes.mjs`, `php/public/catalog/categories.php`, `src/components/admin/admin-product-form.tsx`
+- **Decisions:** Category labels are data, not a hardcoded TS array.
+- **Remaining:** None for milestone taxonomy.
+
+### Phase 15 — Images + admin search
+
+- **What changed:** **`admin/upload-image.php`** (multipart, **`gp_require_admin`**) saves under **`php/public/uploads/`**; **`.gitignore`** ignores uploaded binaries but keeps **`.gitkeep`**. **`resolvePartImageSrc`** maps **`/uploads/...`** → **`/backend/uploads/...`**. Admin products table uses **debounced** **`admin/products.php?q=`** search. Removed mock numeric stock fallbacks in the admin table when **`stockQty`** is absent.
+- **Files:** `php/public/admin/upload-image.php`, `php/public/uploads/.gitkeep`, `.gitignore`, `src/lib/catalog/resolve-part-image.ts`, `src/components/admin/admin-products-data-table.tsx`, `src/components/admin/admin-product-form.tsx`
+- **Decisions:** Honest split: path/URL field remains; upload is **local disk** behind PHP (not a cloud CDN).
+- **Remaining:** Production file ACL, virus scanning, CDN — not implemented.
+
+### Phase 15 — Docs
+
+- **What changed:** **`DATABASE_AUDIT.md`**, **`README.md`**, **`php/README.md`**, this **`tracker.md`** section.
+- **Files:** `DATABASE_AUDIT.md`, `README.md`, `php/README.md`, `tracker.md`
+
+---
+
+## Phase 14 — Final stabilization (Fahad handoff)
+
+Single integration pass: reliable local dev, no competing backends, no live mock catalog, admin + checkout auth aligned with PHP sessions.
+
+### Phase 14 — local run reliability
+
+- **What changed:** `package.json` **`php:server`** uses **`C:\xampp\php\php.exe`** explicitly; added **`dev:full`** (`concurrently` + `npm run dev` + `npm run php:server`).
+- **Files:** `package.json`
+- **Decisions:** Windows-first explicit PHP path per machine setup; teammates without XAMPP edit `package.json` or run PHP manually.
+- **Remaining:** None for the stated Windows layout.
+
+### Phase 14 — mock / fake live data removal
+
+- **What changed:** Confirmed **`mockParts`** is not imported by live routes; **`CustomerAuthProvider`** no longer toggles fake local login — storefront session uses **`auth/customer-*.php`**.
+- **Files:** `src/providers/customer-auth-provider.tsx`, `src/lib/mock/parts.ts` (comment only), `src/components/site/auth-modal.tsx`
+- **Decisions:** Hero/brands mocks remain for marketing chrome only (not inventory).
+- **Remaining:** None for catalog authority.
+
+### Phase 14 — admin seeding
+
+- **What changed:** No logic change — **`scripts/seed-admins.mjs`** already upserts the two emails with env-only passwords and exits cleanly when env vars are missing.
+- **Files:** (verified) `scripts/seed-admins.mjs`
+- **Decisions:** Node seed remains a **dev tool**, not the runtime auth path.
+- **Remaining:** None.
+
+### Phase 14 — admin protection + session truth
+
+- **What changed:** **`AdminAccessGate`** wraps all admin shell routes except login; PHP **`gp_require_admin`** now verifies MongoDB document and **`role === "admin"`** on every admin API call.
+- **Files:** `src/components/admin/admin-access-gate.tsx`, `src/components/admin/admin-layout-shell.tsx`, `php/include/app.php`, `php/public/auth/login.php`
+- **Decisions:** Next has no middleware by design; client gate + PHP enforcement together meet the bar.
+- **Remaining:** RSC admin pages may briefly run before client redirect (empty data only).
+
+### Phase 14 — login / logout
+
+- **What changed:** Admin login sets checkout identity for convenience; **`auth/logout.php`** clears **admin + checkout** session keys and **`session_regenerate_id`**. Storefront **`customer-logout.php`** clears checkout keys only. **`/admin/login`** redirects to dashboard if already authenticated.
+- **Files:** `php/public/auth/login.php`, `php/public/auth/logout.php`, `php/public/auth/customer-login.php`, `php/public/auth/customer-me.php`, `php/public/auth/customer-logout.php`, `src/app/admin/login/page.tsx`
+- **Decisions:** Storefront sign-in reuses **`admins`** (documented in audit) until a `customers` collection exists.
+- **Remaining:** Dedicated customer accounts if product requires separation from staff.
+
+### Phase 14 — guest cart + checkout login
+
+- **What changed:** **`checkout/place.php`** requires **`gp_require_checkout_customer()`**. **`CheckoutForm`**, **`CartView`**, **`StorefrontAuthModalProvider`**, **`AuthModal`** gate checkout and resume at **`/checkout`** after sign-in.
+- **Files:** `php/public/checkout/place.php`, `src/app/(customer)/checkout/checkout-form.tsx`, `src/app/(customer)/cart/cart-view.tsx`, `src/providers/storefront-auth-modal-provider.tsx`, `src/components/site/auth-modal.tsx`, `src/components/customer-providers.tsx`, `src/components/site/site-header.tsx`
+- **Decisions:** Cart stays in **`$_SESSION['gp_cart']`** across login.
+- **Remaining:** None for the stated flow.
+
+### Phase 14 — publishing + images + empty home
+
+- **What changed:** **`resolvePartImageSrc`** + **`next.config.ts`** remote patterns for local PHP image hosts; home **Latest arrivals** min-height + dashed empty panel.
+- **Files:** `src/lib/catalog/resolve-part-image.ts`, `src/components/site/product-card.tsx`, `src/app/(customer)/shop/[slug]/page.tsx`, `src/components/admin/admin-products-data-table.tsx`, `src/app/(customer)/cart/cart-view.tsx`, `next.config.ts`, `src/app/(customer)/page.tsx`
+- **Decisions:** DB continues to store path or URL string; no upload pipeline in this pass.
+- **Remaining:** Binary upload + production CDN URL policy.
+
+### Phase 14 — documentation
+
+- **What changed:** **`DATABASE_AUDIT.md`** §10 truth audit; **`README.md`** Fahad handoff; **`php/README.md`** endpoints; this **`tracker.md`** section.
+- **Files:** `DATABASE_AUDIT.md`, `README.md`, `php/README.md`, `tracker.md`
+
+---
+
+## Database & backend integration — status snapshot
+
+| Item | Status |
+|------|--------|
+| Backend authority | **PHP** (`php/public`, `php/include`) — MongoDB via Composer `mongodb/mongodb` |
+| Next.js role | **UI only** — no **`src/app/api/admin/*`**, no **JWT middleware** |
+| Rewrites | **`/backend/*`** → **`PHP_BACKEND_URL`** (`next.config.ts`) |
+| Storefront + PDP (RSC) | **`src/lib/php-server-fetch.ts`** + **`src/lib/catalog-fetch.ts`** → PHP catalog scripts |
+| Admin auth | **`POST /backend/auth/login.php`**, **`auth/me.php`**, **`auth/logout.php`** — **PHP session (`PHPSESSID`)** |
+| Storefront checkout auth | **`auth/customer-login.php`**, **`customer-me.php`**, **`customer-logout.php`** |
+| Admin CRUD | **`admin/products.php`**, **`admin/product.php`** — wired from **`AdminProductForm`** / data table |
+| Cart | **PHP session cart** — **`cart/*.php`**, **`CartProvider`** |
+| Checkout | **`checkout/place.php`** — requires checkout session; orders + stock decrement + **`gp_last_order_id`** cookie |
+| DB type | **MongoDB** (`MONGODB_URI`) |
+| Node scripts (non-live path) | **`scripts/seed-admins.mjs`**, **`ensure-indexes.mjs`** — optional tooling |
+| Mock catalog | **`mockParts`** not used for live storefront/admin — see `src/lib/mock/parts.ts` |
+
+**See:** `DATABASE_AUDIT.md`, `php/README.md`, `.env.example` (`PHP_BACKEND_URL`).
+
+---
+
+## Historical phase
+
+**Phase 13 — Admin UI shell (shadcn Sidebar, data table, auth shell)** (complete — UI primitives unchanged; now wired to data where noted above)
 
 ## Status summary
 
@@ -291,4 +435,5 @@ Milestone-ready **admin-only** pass: customer storefront styling untouched excep
 - **Data:** Central mocks in `src/lib/mock/parts.ts`, `hero-slides.ts`, `brands.ts`; images via `picsum.photos` + `next/image` remotePatterns.
 - **shadcn:** Initialized with Tailwind v4 + `tw-animate-css`; primitives from registry (`radix-ui` package where generated).
 - **Branding (Phase 12):** Customer navbar **G**; legal/footer naming **Gulf Parts Co**; public copy avoids the retired placeholder storefront name.
-- **Admin shell (Phase 13):** Admin navigation uses shadcn **`Sidebar`** (desktop) with **Sheet** for mobile; catalog management uses **TanStack + `Table`** data table pattern; **mock admin session** is separate from **customer** auth (`AdminSessionProvider` vs `CustomerAuthProvider`).
+- **Admin shell (Phase 13):** Admin navigation uses shadcn **`Sidebar`** (desktop) with **Sheet** for mobile; catalog management uses **TanStack + `Table`** data table pattern. **Phase 14** replaced mock admin/customer auth with **PHP session** (`AdminSessionProvider` + `CustomerAuthProvider`).
+- **Phase 14 stabilization:** Single PHP path; **`dev:full`** for local reliability; **`AdminAccessGate`** + **`gp_require_admin` DB role check**; storefront **`customer-*`** endpoints reuse **`admins`** for checkout until a dedicated customers collection ships; **`checkout/place.php`** enforces checkout session server-side.

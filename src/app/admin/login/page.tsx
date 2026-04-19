@@ -14,18 +14,52 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { phpBrowserUrl } from "@/lib/php-backend";
 import { useAdminSession } from "@/providers/admin-session-provider";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { login } = useAdminSession();
+  const { refresh, isAdminAuthenticated, hydrated } = useAdminSession();
   const [error, setError] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState(false);
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  React.useEffect(() => {
+    if (hydrated && isAdminAuthenticated) {
+      router.replace("/admin/dashboard");
+    }
+  }, [hydrated, isAdminAuthenticated, router]);
+
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
-    login();
-    router.push("/admin/dashboard");
+    setPending(true);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const email = String(fd.get("adminId") ?? "").trim();
+    const password = String(fd.get("password") ?? "");
+
+    try {
+      const res = await fetch(phpBrowserUrl("auth/login.php"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+
+      if (!res.ok) {
+        setError(body.error ?? "Invalid credentials");
+        setPending(false);
+        return;
+      }
+
+      await refresh();
+      router.push("/admin/dashboard");
+    } catch {
+      setError("Could not reach the sign-in service. Try again or contact support.");
+    } finally {
+      setPending(false);
+    }
   };
 
   return (
@@ -37,8 +71,7 @@ export default function AdminLoginPage() {
           </p>
           <CardTitle className="font-heading text-2xl">Admin sign in</CardTitle>
           <CardDescription>
-            Separate from the customer account modal on the storefront. Use any values for this
-            milestone demo — submit stores a mock admin session in the browser.
+            Staff credentials are verified securely using a browser session cookie (HttpOnly, SameSite=Lax).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -52,7 +85,8 @@ export default function AdminLoginPage() {
                 required
                 autoComplete="username"
                 className="bg-background"
-                placeholder="manager@gulfparts.co"
+                placeholder="you@example.com"
+                disabled={pending}
               />
             </div>
             <div className="space-y-2">
@@ -65,17 +99,19 @@ export default function AdminLoginPage() {
                 autoComplete="current-password"
                 className="bg-background"
                 placeholder="••••••••"
+                disabled={pending}
               />
             </div>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
             <p className="text-xs text-muted-foreground">
-              Validation and API wiring can replace this shell without changing the layout.
+              Auth errors stay generic — no account hints. JavaScript validation can extend this form
+              without changing layout.
             </p>
           </form>
         </CardContent>
         <CardFooter className="flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:justify-end">
-          <Button type="submit" form="admin-login-form" className="w-full sm:w-auto">
-            Sign in
+          <Button type="submit" form="admin-login-form" className="w-full sm:w-auto" disabled={pending}>
+            {pending ? "Signing in…" : "Sign in"}
           </Button>
         </CardFooter>
       </Card>

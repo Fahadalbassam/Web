@@ -132,10 +132,31 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground antialiased;
-  }
   html {
-    @apply font-sans;
+    @apply overflow-x-hidden font-sans;
+  }
+  body {
+    @apply overflow-x-hidden bg-background text-foreground antialiased;
+  }
+}
+
+/* Homepage “Brands We Cover” — infinite marquee + reduced-motion fallback */
+@keyframes brand-strip-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.brand-strip-runner-animated {
+  animation: brand-strip-scroll var(--brand-strip-duration, 52s) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-strip-runner-animated {
+    animation: none;
+    transform: none;
   }
 }

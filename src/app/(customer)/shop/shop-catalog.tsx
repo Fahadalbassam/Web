@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
-import { mockParts, type Part, type StockStatus } from "@/lib/mock/parts";
+import type { Part, StockStatus } from "@/lib/catalog/part";
 import { ProductCard } from "@/components/site/product-card";
 import { EmptyState } from "@/components/site/empty-state";
 import { Button } from "@/components/ui/button";
@@ -24,9 +24,6 @@ import {
 } from "@/components/ui/pagination";
 import { PageIntro } from "@/components/site/page-intro";
 import { cn } from "@/lib/utils";
-
-const categories = Array.from(new Set(mockParts.map((p) => p.category))).sort();
-const brands = Array.from(new Set(mockParts.map((p) => p.brand))).sort();
 
 const PAGE_SIZE = 9;
 
@@ -91,7 +88,16 @@ function CatalogPagination({
   );
 }
 
-export function ShopCatalog() {
+export function ShopCatalog({ parts }: { parts: Part[] }) {
+  const categories = React.useMemo(
+    () => Array.from(new Set(parts.map((p) => p.category))).sort(),
+    [parts]
+  );
+  const brands = React.useMemo(
+    () => Array.from(new Set(parts.map((p) => p.brand))).sort(),
+    [parts]
+  );
+
   const [search, setSearch] = React.useState("");
   const [category, setCategory] = React.useState<string>("all");
   const [brand, setBrand] = React.useState<string>("all");
@@ -105,7 +111,7 @@ export function ShopCatalog() {
   }, [search, category, brand, priceMax, stock, sort]);
 
   const filtered = React.useMemo(() => {
-    let list = [...mockParts];
+    let list = [...parts];
     const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter(
@@ -129,9 +135,10 @@ export function ShopCatalog() {
     if (sort === "price-asc") list.sort((a, b) => a.price - b.price);
     else if (sort === "price-desc") list.sort((a, b) => b.price - a.price);
     else if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
+    /* "featured": preserve server order (newest published first). */
 
     return list;
-  }, [search, category, brand, priceMax, stock, sort]);
+  }, [parts, search, category, brand, priceMax, stock, sort]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
@@ -191,7 +198,7 @@ export function ShopCatalog() {
         </Select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="price-max">Max price (USD)</Label>
+        <Label htmlFor="price-max">Max price (SAR)</Label>
         <Input
           id="price-max"
           inputMode="decimal"
@@ -256,7 +263,7 @@ export function ShopCatalog() {
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 md:py-14">
       <PageIntro
         title="Shop parts"
-        description="Filter locally against mock SKUs — layout mirrors a production catalog without backend wiring."
+        description="Live catalog — published parts from our inventory system."
       />
 
       <div className="mt-8 flex flex-col gap-4 md:hidden">
@@ -337,11 +344,17 @@ export function ShopCatalog() {
           {filtered.length === 0 ? (
             <EmptyState
               title="No parts match"
-              description="Relax a filter or reset to see the full mock catalog."
+              description={
+                parts.length === 0
+                  ? "We’re stocking this catalog — check back soon."
+                  : "Relax a filter or reset to see more of the catalog."
+              }
               action={
-                <Button variant="secondary" onClick={clearFilters}>
-                  Clear filters
-                </Button>
+                parts.length === 0 ? undefined : (
+                  <Button variant="secondary" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                )
               }
             />
           ) : (
@@ -361,8 +374,18 @@ export function ShopCatalog() {
         {filtered.length === 0 ? (
           <EmptyState
             title="No parts match"
-            description="Relax a filter or reset to see the full mock catalog."
-            action={<Button variant="secondary" onClick={clearFilters}>Clear filters</Button>}
+            description={
+              parts.length === 0
+                ? "We’re stocking this catalog — check back soon."
+                : "Relax a filter or reset to see more of the catalog."
+            }
+            action={
+              parts.length === 0 ? undefined : (
+                <Button variant="secondary" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              )
+            }
           />
         ) : (
           <>

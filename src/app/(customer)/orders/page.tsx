@@ -5,6 +5,7 @@ import { PageIntro } from "@/components/site/page-intro";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SarCurrency } from "@/components/site/sar-currency";
 
 export const metadata: Metadata = { title: "Orders" };
 
@@ -35,7 +36,7 @@ export default function OrdersPage() {
                 <Badge variant="secondary" className="bg-secondary text-secondary-foreground">
                   {o.status}
                 </Badge>
-                <span className="text-sm font-semibold tabular-nums">${o.total.toFixed(2)}</span>
+                <SarCurrency amount={o.total} className="text-sm font-semibold text-foreground" />
                 <Button size="sm" variant="outline" className="border-border" type="button" disabled>
                   Details
                 </Button>

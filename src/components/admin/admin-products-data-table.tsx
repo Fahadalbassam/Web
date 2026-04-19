@@ -3,6 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   type ColumnDef,
   flexRender,
@@ -11,7 +12,10 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-import type { Part, StockStatus } from "@/lib/mock/parts";
+import type { Part, StockStatus } from "@/lib/catalog/part";
+import { resolvePartImageSrc } from "@/lib/catalog/resolve-part-image";
+import { SarCurrency } from "@/components/site/sar-currency";
+import { phpBrowserUrl } from "@/lib/php-backend";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,17 +53,9 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-function mockStockQty(status: StockStatus) {
-  switch (status) {
-    case "in_stock":
-      return 24;
-    case "low_stock":
-      return 4;
-    case "out_of_stock":
-      return 0;
-    default:
-      return 0;
-  }
+function displayStockQty(part: Part): number {
+  if (typeof part.stockQty === "number") return part.stockQty;
+  return 0;
 }
 
 function statusBadgeVariant(
@@ -72,12 +68,30 @@ function statusBadgeVariant(
 
 function ProductActionsCell({
   product,
-  onDelete,
+  onDeleted,
 }: {
   product: Part;
-  onDelete: (id: string) => void;
+  onDeleted: () => void;
 }) {
   const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+
+  const remove = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(
+        phpBrowserUrl(`admin/product.php?id=${encodeURIComponent(product.id)}`),
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+      if (res.ok) onDeleted();
+    } finally {
+      setDeleting(false);
+      setConfirmOpen(false);
+    }
+  };
 
   return (
     <>
@@ -119,20 +133,14 @@ function ProductActionsCell({
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this product?</AlertDialogTitle>
             <AlertDialogDescription>
-              {product.name} ({product.partNumber}) will disappear from this admin table until data is
-              reloaded. This is a demo-only action.
+              {product.name} ({product.partNumber}) will be deleted from the catalog and removed from the
+              storefront.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => {
-                onDelete(product.id);
-                setConfirmOpen(false);
-              }}
-            >
-              Delete
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" disabled={deleting} onClick={() => void remove()}>
+              {deleting ? "Deleting…" : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -142,24 +150,40 @@ function ProductActionsCell({
 }
 
 export function AdminProductsDataTable({ initialParts }: { initialParts: Part[] }) {
+  const router = useRouter();
   const [data, setData] = React.useState(initialParts);
   const [query, setQuery] = React.useState("");
+  const [serverSearchLoading, setServerSearchLoading] = React.useState(false);
 
   React.useEffect(() => {
-    setData(initialParts);
-  }, [initialParts]);
+    if (!query.trim()) {
+      setData(initialParts);
+    }
+  }, [initialParts, query]);
 
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return data;
-    return data.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.brand.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q) ||
-        p.partNumber.toLowerCase().includes(q)
-    );
-  }, [data, query]);
+  React.useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      void (async () => {
+        setServerSearchLoading(true);
+        try {
+          const res = await fetch(
+            phpBrowserUrl(`admin/products.php?q=${encodeURIComponent(q)}`),
+            { credentials: "include", cache: "no-store" }
+          );
+          if (!res.ok) return;
+          const j = (await res.json()) as { parts?: Part[] };
+          setData(j.parts ?? []);
+        } finally {
+          setServerSearchLoading(false);
+        }
+      })();
+    }, 350);
+    return () => window.clearTimeout(handle);
+  }, [query]);
 
   const columns = React.useMemo<ColumnDef<Part>[]>(
     () => [
@@ -169,7 +193,7 @@ export function AdminProductsDataTable({ initialParts }: { initialParts: Part[] 
         cell: ({ row }) => (
           <div className="relative size-10 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
             <Image
-              src={row.original.image}
+              src={resolvePartImageSrc(row.original.image)}
               alt={row.original.name}
               fill
               sizes="40px"
@@ -195,15 +219,15 @@ export function AdminProductsDataTable({ initialParts }: { initialParts: Part[] 
         id: "stock",
         header: "Stock",
         cell: ({ row }) => (
-          <span className="tabular-nums text-muted-foreground">{mockStockQty(row.original.stockStatus)}</span>
+          <span className="tabular-nums text-muted-foreground">{displayStockQty(row.original)}</span>
         ),
       },
       {
         accessorKey: "price",
         header: () => <div className="text-right">Price</div>,
         cell: ({ row }) => (
-          <div className="text-right tabular-nums text-foreground">
-            ${row.original.price.toFixed(2)}
+          <div className="flex justify-end text-foreground">
+            <SarCurrency amount={row.original.price} />
           </div>
         ),
       },
@@ -223,17 +247,20 @@ export function AdminProductsDataTable({ initialParts }: { initialParts: Part[] 
           <div className="flex justify-end">
             <ProductActionsCell
               product={row.original}
-              onDelete={(id) => setData((rows) => rows.filter((p) => p.id !== id))}
+              onDeleted={() => {
+                setData((rows) => rows.filter((p) => p.id !== row.original.id));
+                router.refresh();
+              }}
             />
           </div>
         ),
       },
     ],
-    []
+    [router]
   );
 
   const table = useReactTable({
-    data: filtered,
+    data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -254,8 +281,14 @@ export function AdminProductsDataTable({ initialParts }: { initialParts: Part[] 
           aria-label="Search products"
         />
         <p className="text-sm text-muted-foreground">
-          Showing <span className="font-medium text-foreground">{filtered.length}</span> of{" "}
-          <span className="font-medium text-foreground">{data.length}</span> rows (demo)
+          {serverSearchLoading ? (
+            <span className="text-muted-foreground">Searching catalog…</span>
+          ) : (
+            <>
+              Showing <span className="font-medium text-foreground">{data.length}</span>{" "}
+              {query.trim() ? "matches" : "products"}
+            </>
+          )}
         </p>
       </div>
 
@@ -288,7 +321,7 @@ export function AdminProductsDataTable({ initialParts }: { initialParts: Part[] 
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                  No products match this search.
+                  {query.trim() ? "No products match this search." : "No products in the catalog yet."}
                 </TableCell>
               </TableRow>
             )}

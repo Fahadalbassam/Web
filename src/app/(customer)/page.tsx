@@ -8,11 +8,27 @@ import { ProductCard } from "@/components/site/product-card";
 import { CTASection } from "@/components/site/cta-section";
 import { Button } from "@/components/ui/button";
 import { heroSlides } from "@/lib/mock/hero-slides";
-import { mockParts } from "@/lib/mock/parts";
+import { fetchPublishedParts } from "@/lib/catalog-fetch";
+import { getBrandLogoPublicPaths } from "@/lib/brand-logos-server";
+import {
+  getLocalPreviewCatalogParts,
+  mergePartsForHomeRow,
+} from "@/lib/catalog/storefront-catalog";
 
-const featured = mockParts.slice(0, 4);
+export const dynamic = "force-dynamic";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const brandLogos = getBrandLogoPublicPaths();
+
+  let real = [] as Awaited<ReturnType<typeof fetchPublishedParts>>;
+  try {
+    real = await fetchPublishedParts(4);
+  } catch {
+    real = [];
+  }
+  const preview = getLocalPreviewCatalogParts();
+  const featured = mergePartsForHomeRow(real, preview, 4);
+
   return (
     <div>
       <PageSection density="compact" className="pt-6 pb-4 md:pt-8">
@@ -25,7 +41,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <PageIntro
             title="Built for drivers who maintain."
-            description="Proven brands, clear compatibility notes, and a calm checkout flow. This beta uses mock inventory — the experience is production-ready, the data is not."
+            description="Proven brands, clear compatibility notes, and a calm checkout flow. Fresh inventory appears here as soon as it is published."
           />
         </div>
       </PageSection>
@@ -33,7 +49,7 @@ export default function HomePage() {
       <PageSection density="compact" className="py-10 md:py-12">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <SectionHeading align="center" title="Brands We Cover" className="max-w-xl" />
-          <BrandStrip className="mt-8" />
+          <BrandStrip logos={brandLogos} className="mt-8" />
         </div>
       </PageSection>
 
@@ -43,16 +59,24 @@ export default function HomePage() {
             <SectionHeading
               eyebrow="Featured"
               title="Latest arrivals"
-              description="Same ProductCard component used across shop listings for visual consistency."
+              description="Our newest in-stock highlights — same cards as the full shop."
             />
             <Button asChild variant="outline" className="w-fit border-border bg-card">
               <Link href="/shop">View all parts</Link>
             </Button>
           </div>
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {featured.map((p) => (
-              <ProductCard key={p.slug} part={p} />
-            ))}
+          <div className="mt-10 grid min-h-[220px] gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {featured.length === 0 ? (
+              <div className="col-span-full flex min-h-[200px] flex-col justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
+                <p className="text-sm font-medium text-foreground">No parts to show yet</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Publish parts in the admin catalog, or add preview images under{" "}
+                  <span className="font-mono text-foreground">public/images/</span>.
+                </p>
+              </div>
+            ) : (
+              featured.map((p) => <ProductCard key={p.slug} part={p} />)
+            )}
           </div>
         </div>
       </PageSection>
@@ -61,7 +85,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <CTASection
             title="Need pads, filters, or a full service cart?"
-            description="Search by category and brand, then refine by price and availability — all client-side for this milestone."
+            description="Search by category and brand, then refine by price and availability."
             primary={{ label: "Open shop", href: "/shop" }}
             secondary={{ label: "Browse support", href: "/support" }}
           />

@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# PHP user uploads (keep directory via .gitkeep)
+/php/public/uploads/*
+!/php/public/uploads/.gitkeep

@@ -3,35 +3,63 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, ChevronRight } from "lucide-react";
-import { getPartBySlug, getRelatedParts, mockParts } from "@/lib/mock/parts";
+import {
+  fetchPartBySlug,
+  fetchPublishedParts,
+  fetchRelatedParts,
+} from "@/lib/catalog-fetch";
+import type { Part } from "@/lib/catalog/part";
+import { resolvePartImageSrc } from "@/lib/catalog/resolve-part-image";
 import { PageSection } from "@/components/site/page-section";
 import { ProductCard } from "@/components/site/product-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ProductDetailActions } from "./product-detail-actions";
+import { SarCurrency } from "@/components/site/sar-currency";
+
+export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
 
-export async function generateStaticParams() {
-  return mockParts.map((p) => ({ slug: p.slug }));
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const part = getPartBySlug(slug);
-  if (!part) return { title: "Part" };
-  return { title: part.name };
+  try {
+    const part = await fetchPartBySlug(slug);
+    if (!part) return { title: "Part" };
+    return { title: part.name };
+  } catch {
+    return { title: "Part" };
+  }
 }
 
 export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
-  const part = getPartBySlug(slug);
+  let part: Part | null = null;
+  try {
+    part = await fetchPartBySlug(slug);
+  } catch {
+    notFound();
+  }
   if (!part) notFound();
 
-  const related = getRelatedParts(slug, 4);
-  const fallbackRelated = mockParts.filter((p) => p.slug !== slug).slice(0, 4);
-  const row = related.length ? related : fallbackRelated;
+  const partImage = resolvePartImageSrc(part.image);
+
+  let related: Part[] = [];
+  try {
+    related = await fetchRelatedParts(slug, 4);
+  } catch {
+    related = [];
+  }
+
+  if (related.length === 0) {
+    try {
+      const pool = await fetchPublishedParts();
+      related = pool.filter((p) => p.slug !== slug).slice(0, 4);
+    } catch {
+      related = [];
+    }
+  }
 
   return (
     <div>
@@ -56,7 +84,7 @@ export default async function ProductPage({ params }: Props) {
           <div className="overflow-hidden rounded-2xl border border-border bg-card">
             <div className="relative aspect-[4/3] bg-muted">
               <Image
-                src={part.image}
+                src={partImage}
                 alt={part.name}
                 fill
                 priority
@@ -81,9 +109,7 @@ export default async function ProductPage({ params }: Props) {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-3xl font-semibold tabular-nums text-foreground">
-                ${part.price.toFixed(2)}
-              </span>
+              <SarCurrency amount={part.price} className="text-3xl font-semibold text-foreground" />
               {part.stockStatus === "in_stock" ? (
                 <Badge className="bg-secondary text-secondary-foreground">In stock</Badge>
               ) : null}
@@ -115,12 +141,16 @@ export default async function ProductPage({ params }: Props) {
           </p>
           <div className="mt-6 rounded-2xl border border-border bg-surface-2/60 p-6 md:p-8">
             <ul className="space-y-3 text-sm text-foreground">
-              {part.compatibility.map((line) => (
-                <li key={line} className="flex gap-2">
-                  <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-                  <span>{line}</span>
-                </li>
-              ))}
+              {part.compatibility.length === 0 ? (
+                <li className="text-muted-foreground">No compatibility lines stored for this SKU.</li>
+              ) : (
+                part.compatibility.map((line) => (
+                  <li key={line} className="flex gap-2">
+                    <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                    <span>{line}</span>
+                  </li>
+                ))
+              )}
             </ul>
           </div>
         </div>
@@ -132,7 +162,7 @@ export default async function ProductPage({ params }: Props) {
             <div>
               <h2 className="font-heading text-xl font-semibold text-foreground">Related parts</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Same category when available — otherwise curated neighbors from the mock set.
+                Same category when available — otherwise other published catalog items.
               </p>
             </div>
             <Button asChild variant="ghost" className="hidden sm:inline-flex">
@@ -141,7 +171,7 @@ export default async function ProductPage({ params }: Props) {
           </div>
           <Separator className="my-8 bg-border" />
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {row.map((p) => (
+            {related.map((p) => (
               <ProductCard key={p.slug} part={p} />
             ))}
           </div>

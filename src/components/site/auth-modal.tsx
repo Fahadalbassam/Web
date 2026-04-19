@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { Globe } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,28 +11,50 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { useCustomerAuth } from "@/providers/customer-auth-provider";
 
 type AuthModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onLoginSuccess?: () => void;
 };
 
-export function AuthModal({ open, onOpenChange }: AuthModalProps) {
-  const { login } = useCustomerAuth();
+export function AuthModal({ open, onOpenChange, onLoginSuccess }: AuthModalProps) {
+  const { loginWithCredentials } = useCustomerAuth();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState(false);
 
-  const handleGoogle = () => {
-    login();
-    onOpenChange(false);
+  const resetFields = () => {
+    setEmail("");
+    setPassword("");
+    setError(null);
   };
 
-  const handleEmail = (e: React.FormEvent) => {
+  React.useEffect(() => {
+    if (!open) resetFields();
+  }, [open]);
+
+  const handleEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    login();
-    onOpenChange(false);
+    setError(null);
+    setPending(true);
+    try {
+      const r = await loginWithCredentials(email, password);
+      if (!r.ok) {
+        setError(r.error ?? "Could not sign in");
+        setPending(false);
+        return;
+      }
+      resetFields();
+      onOpenChange(false);
+      onLoginSuccess?.();
+    } catch {
+      setError("Could not reach the sign-in service.");
+    } finally {
+      setPending(false);
+    }
   };
 
   return (
@@ -42,54 +63,46 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
         <DialogHeader>
           <DialogTitle className="font-heading text-xl">Sign in</DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Customer account — separate from admin access.
+            Sign in with your Gulf Parts Co account to complete checkout. Same credentials as staff admin accounts
+            for this beta.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full border-border bg-card hover:bg-accent"
-            onClick={handleGoogle}
-          >
-            <Globe className="size-4" />
-            Continue with Google
-          </Button>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <Separator className="flex-1 bg-border" />
-            or email
-            <Separator className="flex-1 bg-border" />
+        <form onSubmit={(e) => void handleEmail(e)} className="space-y-3 pt-2">
+          <div className="space-y-2">
+            <Label htmlFor="auth-email">Email</Label>
+            <Input
+              id="auth-email"
+              type="email"
+              name="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="bg-background"
+              required
+              disabled={pending}
+            />
           </div>
-          <form onSubmit={handleEmail} className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="auth-email">Email</Label>
-              <Input
-                id="auth-email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-background"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="auth-password">Password</Label>
-              <Input
-                id="auth-password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-background"
-              />
-            </div>
-            <Button type="submit" className="w-full">
-              Continue with email
-            </Button>
-          </form>
-        </div>
+          <div className="space-y-2">
+            <Label htmlFor="auth-password">Password</Label>
+            <Input
+              id="auth-password"
+              type="password"
+              name="password"
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="bg-background"
+              required
+              disabled={pending}
+            />
+          </div>
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          <Button type="submit" className="w-full" disabled={pending}>
+            {pending ? "Signing in…" : "Sign in"}
+          </Button>
+        </form>
       </DialogContent>
     </Dialog>
   );

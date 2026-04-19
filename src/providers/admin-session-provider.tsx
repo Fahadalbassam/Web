@@ -1,47 +1,51 @@
 "use client";
 
 import * as React from "react";
-
-const STORAGE_KEY = "gulfparts-admin-demo";
+import { phpBrowserUrl } from "@/lib/php-backend";
 
 type AdminSessionContextValue = {
-  /** True after successful mock admin sign-in (persists in localStorage). */
   isAdminAuthenticated: boolean;
-  /** Hydration complete — read storage safely for links. */
   hydrated: boolean;
-  login: () => void;
-  logout: () => void;
+  refresh: () => Promise<void>;
+  logout: () => Promise<void>;
 };
 
-const AdminSessionContext = React.createContext<AdminSessionContextValue | null>(
-  null
-);
+const AdminSessionContext = React.createContext<AdminSessionContextValue | null>(null);
 
 export function AdminSessionProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = React.useState(false);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = React.useState(false);
 
-  React.useEffect(() => {
+  const refresh = React.useCallback(async () => {
     try {
-      setIsAdminAuthenticated(window.localStorage.getItem(STORAGE_KEY) === "1");
+      const res = await fetch(phpBrowserUrl("auth/me.php"), {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const data = (await res.json().catch(() => ({}))) as { authenticated?: boolean };
+      // me.php returns 200 + { authenticated } for both guest and signed-in admin.
+      if (!res.ok) {
+        setIsAdminAuthenticated(false);
+        return;
+      }
+      setIsAdminAuthenticated(data.authenticated === true);
     } catch {
       setIsAdminAuthenticated(false);
+    } finally {
+      setHydrated(true);
     }
-    setHydrated(true);
   }, []);
 
-  const login = React.useCallback(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-    setIsAdminAuthenticated(true);
-  }, []);
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
-  const logout = React.useCallback(() => {
+  const logout = React.useCallback(async () => {
     try {
-      window.localStorage.removeItem(STORAGE_KEY);
+      await fetch(phpBrowserUrl("auth/logout.php"), {
+        method: "POST",
+        credentials: "include",
+      });
     } catch {
       /* ignore */
     }
@@ -52,16 +56,14 @@ export function AdminSessionProvider({ children }: { children: React.ReactNode }
     () => ({
       isAdminAuthenticated,
       hydrated,
-      login,
+      refresh,
       logout,
     }),
-    [isAdminAuthenticated, hydrated, login, logout]
+    [isAdminAuthenticated, hydrated, refresh, logout]
   );
 
   return (
-    <AdminSessionContext.Provider value={value}>
-      {children}
-    </AdminSessionContext.Provider>
+    <AdminSessionContext.Provider value={value}>{children}</AdminSessionContext.Provider>
   );
 }
 

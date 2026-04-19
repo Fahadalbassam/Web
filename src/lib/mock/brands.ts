@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Car, CircleDot, Cog, Gauge, Wrench } from "lucide-react";
 
-/** Placeholder mark for the “Brands we cover” strip — swap `Icon` for `<Image>` when logo assets exist. */
+/** Legacy placeholder marks — homepage strip now uses files under `public/images/brandlogos/` via `BrandStrip`. */
 export type BrandMarkDef = {
   id: string;
   /** Reserved for real logos and a11y; not shown as the primary visual. */

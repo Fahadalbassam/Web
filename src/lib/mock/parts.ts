@@ -1,22 +1,11 @@
-export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
+import type { Part } from "@/lib/catalog/part";
 
-export type Part = {
-  id: string;
-  slug: string;
-  name: string;
-  brand: string;
-  partNumber: string;
-  price: number;
-  image: string;
-  category: string;
-  description: string;
-  stockStatus: StockStatus;
-  compatibility: string[];
-};
+export type { Part, StockStatus } from "@/lib/catalog/part";
 
 const img = (seed: string) =>
   `https://picsum.photos/seed/carpart-${seed}/800/600`;
 
+/** Legacy demo catalog — not imported by live storefront/admin routes; catalog is PHP + MongoDB only. */
 export const mockParts: Part[] = [
   {
     id: "1",

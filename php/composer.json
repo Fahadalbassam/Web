@@ -1,0 +1,13 @@
+{
+  "name": "gulfparts/php-backend",
+  "description": "PHP backend for Gulf Parts Co — MongoDB, sessions, REST-style JSON endpoints.",
+  "require": {
+    "php": ">=8.1",
+    "mongodb/mongodb": "^1.20"
+  },
+  "config": {
+    "platform": {
+      "php": "8.2"
+    }
+  }
+}

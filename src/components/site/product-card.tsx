@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { Part } from "@/lib/mock/parts";
+import type { Part } from "@/lib/catalog/part";
+import { resolvePartImageSrc } from "@/lib/catalog/resolve-part-image";
+import { SarCurrency } from "@/components/site/sar-currency";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -34,6 +36,10 @@ export function ProductCard({
   part: Part;
   className?: string;
 }) {
+  const img = resolvePartImageSrc(part.image);
+  const detailHref = part.isPreviewCatalog ? "/shop" : `/shop/${part.slug}`;
+  const imageFitPreview = part.isPreviewCatalog === true;
+
   return (
     <Card
       className={cn(
@@ -42,13 +48,16 @@ export function ProductCard({
       )}
     >
       <CardHeader className="p-0">
-        <Link href={`/shop/${part.slug}`} className="block">
-          <div className="relative aspect-[4/3] bg-muted">
+        <Link href={detailHref} className="block">
+          <div className="relative aspect-[4/3] bg-white">
             <Image
-              src={part.image}
+              src={img}
               alt={part.name}
               fill
-              className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+              className={cn(
+                "transition-transform duration-300 group-hover:scale-[1.02]",
+                imageFitPreview ? "object-contain object-center p-3" : "object-cover"
+              )}
               sizes="(max-width:768px) 100vw, 33vw"
             />
           </div>
@@ -61,7 +70,7 @@ export function ProductCard({
               {part.brand}
             </p>
             <Link
-              href={`/shop/${part.slug}`}
+              href={detailHref}
               className="mt-1 line-clamp-2 text-sm font-semibold text-foreground decoration-transparent underline-offset-4 hover:underline"
             >
               {part.name}
@@ -72,11 +81,9 @@ export function ProductCard({
         <p className="font-mono text-xs text-muted-foreground">{part.partNumber}</p>
       </CardContent>
       <CardFooter className="mt-auto flex items-center justify-between border-t border-border bg-muted/15 px-4 py-3 dark:bg-muted/10">
-        <span className="text-base font-semibold tabular-nums text-foreground">
-          ${part.price.toFixed(2)}
-        </span>
+        <SarCurrency amount={part.price} className="text-base font-semibold text-foreground" />
         <Link
-          href={`/shop/${part.slug}`}
+          href={detailHref}
           className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         >
           Details

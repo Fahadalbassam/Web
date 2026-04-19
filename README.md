@@ -2,25 +2,52 @@
 
 This is a CarPart Project.
 
-## Fahad — Frontend
+## Fahad — Frontend / backend integration (handoff)
 
-Customer-facing and admin UIs for **Gulf Parts Co**: a restrained, automotive-focused parts storefront built with **Next.js App Router**, **TypeScript**, **Tailwind CSS v4**, **shadcn/ui**, and **next-themes**.
+**Gulf Parts Co** is a car-parts storefront and admin console: **Next.js 16 (App Router) + TypeScript + Tailwind v4 + shadcn/ui** for UI, **PHP 8.x + Composer `mongodb/mongodb`** as the **only** live backend for auth, cart, catalog API, admin CRUD, and checkout, backed by **MongoDB**.
 
-### What shipped
+### Integration summary
 
-- **Theme system:** Semantic CSS variables (`background`, `foreground`, `surface`, `surface-2`, `surface-3`, `card`, `muted`, `primary`, etc.) in `src/app/globals.css`, mapped through Tailwind `@theme inline`. Dark mode uses **neutral graphite** surfaces for cards and chrome (no cool-tinted panels). Light mode keeps a warm **eggshell** page background. Navbar and footer stay on a distinct **surface** layer. A **theme toggle** lives in the customer header (and admin header).
-- **Branding:** Navbar shows **G**; footer and metadata use **Gulf Parts Co**; customer-facing copy no longer references the old placeholder store name.
-- **Home:** Hero carousel (max **3** slides) with **dots and light chevrons below** the slide (controls not stacked on imagery); **Brands We Cover** section with a seamless, perspective **icon strip** (ready to swap for real logos via `src/lib/mock/brands.ts`); featured `ProductCard` row and CTAs unchanged in flow.
-- **Shared components:** `src/components/site/` — layout chrome (`SiteHeader`, `SiteFooter`, `MobileNav`), marketing (`PageSection`, `SectionHeading`, `PageIntro`, `HeroCarousel`, `BrandStrip`, `CTASection`), commerce (`ProductCard`, `EmptyState`), and customer auth (`AuthModal`, `UserMenu`, `ThemeToggle`). shadcn primitives live in `src/components/ui/`.
-- **Shop:** **Sticky**, height-by-content filter sidebar on desktop; catalog **pagination** (9 per page) with shadcn **`Pagination`** + **`Button`**, integrated with search/sort/filters.
-- **Customer pages:** Home, shop with filters/sort/pagination, product detail (`/shop/[slug]`), cart, checkout, support (form + contact + map placeholder), orders, and settings. Mock catalog and cart/checkout flows are **UI-only** (local state / mock data).
-- **Admin area (Phase 13):** Mock **staff session** (`AdminSessionProvider`, separate from customer auth) gates the **Admin panel** link in the avatar **`DropdownMenu`** (`/admin/dashboard` when signed in, else `/admin/login`). Admin chrome uses the shadcn **`Sidebar`** (desktop) with **Sheet**-powered mobile navigation, sticky inset header + **ThemeToggle**, and **Alert Dialog** sign-out. **`/admin/login`** is a focused **`Card`** + **`Input`** / **`Label`** / **`Button`** form. **`/admin/dashboard`** shows **`Card`** KPIs, **`Badge`** / **`Separator`**, quick actions, and a short recent list. **`/admin/products`** uses the official **Data Table** pattern (**`@tanstack/react-table`** + shadcn **`Table`**), search **`Input`**, row **`DropdownMenu`**, **`Badge`** status, **`AlertDialog`** delete, and shadcn **`Pagination`** when needed. **`/admin/products/new`** and **`/admin/products/[id]/edit`** share **`AdminProductForm`** built from **`Card`**, **`Input`**, **`Label`**, **`Textarea`**, **`Select`**, **`Checkbox`**, **`Separator`**, and **`Button`**, including an image file field placeholder and optional fitment fields. **Frontend-only** — ready for backend integration without changing routes.
-- **Consistency:** Dialog / dropdown-menu / sheet patterns for auth, account menu, and mobile nav; one card/button/input language; `ProductCard` reused on home, shop, related rows, and PDP. Shop and PDP include **loading skeletons**; global **404** at `src/app/not-found.tsx`.
+- **PHP-first wiring is in place:** the browser calls **`/backend/*`** (rewritten in `next.config.ts` to `PHP_BACKEND_URL`). Server Components use **`src/lib/php-server-fetch.ts`** and **`src/lib/catalog-fetch.ts`** for catalog and admin reads. **No Next Route Handlers** act as authority for those domains.
+- **shadcn admin + storefront UI is preserved:** the approved **Sidebar**, **Data Table** (`@tanstack/react-table` + `Table`), forms, dialogs, pagination, and cards are unchanged in layout; only data targets and guards were wired to PHP.
+- **Local development:** run **`npm run dev:full`** to start **Next** and the **PHP built-in server** together. `npm run php:server` uses **`C:\xampp\php\php.exe`** explicitly (see `package.json`) so Windows PATH does not need `php`. `.env.local` should set **`MONGODB_URI`** and **`PHP_BACKEND_URL=http://127.0.0.1:8080`**.
+- **Admin accounts:** `npm run db:seed-admins` upserts **`fahad2albassam@gmail.com`** and **`obayyassine@gmail.com`** when **`ADMIN_SEED_PASSWORD_FAHAD`** and **`ADMIN_SEED_PASSWORD_OBAI`** are set (Node script only; **no plaintext passwords in git**). The same command ensures default rows in the **`categories`** collection for the admin category picker.
+- **Auth:** Admin panel uses **`auth/login.php`**, **`auth/me.php`** (200 + JSON, validates Mongo admin + role + email match), **`auth/logout.php`** (**POST**, HttpOnly `PHPSESSID`). Storefront checkout uses **`auth/customer-login.php`**, **`auth/customer-me.php`**, **`auth/customer-logout.php`** — same **`admins`** collection for this beta (no separate `customers` table yet); session keys differ so **guests cannot use admin APIs** without `admin_id`.
+- **Admin protection:** **`src/middleware.ts`** redirects unauthenticated users away from **`/admin/*`** (except **`/admin/login`**) using the same **`auth/me.php`** probe + cookies; **`AdminAccessGate`** remains client-side defense in depth. PHP **`gp_require_admin`** re-checks MongoDB **`role === "admin"`** on every admin API.
+- **Cart & checkout:** Guest **add-to-cart** uses PHP session cart. **Checkout requires** storefront sign-in; after login, **`openLogin("/checkout")`** returns the user to checkout without losing the cart. **`checkout/place.php`** enforces checkout session server-side.
+- **Catalog:** Published products appear on **home** (`fetchPublishedParts` → `catalog/products.php?published=1&limit=4`), **shop**, and **PDP** via PHP catalog scripts. Storefront visibility uses **`gp_match_published_catalog()`** — any document where **`published` is not strictly `false`** (includes missing field). Sorting for listings is **`createdAt` descending**. **`resolvePartImageSrc`** maps **`/uploads/...`** to **`/backend/uploads/...`** so staff uploads via **`admin/upload-image.php`** render through the Next rewrite.
+- **Milestone preview rows (temporary):** Next scans image files in **`public/images/`** under **`Brake Pads`**, **`Air Filters`**, **`Batteries`**, and **`Radiators`** (folder names matched case-insensitively) and synthesizes extra **`Part`** objects for the storefront only (`src/lib/catalog/preview-local-inventory.ts`). **`storefront-catalog.ts`** merges them with PHP results: **home** fills to four cards with **real parts first**; **shop** pads only when there are **fewer than eight** published parts. Preview cards link to **`/shop`** (not PDP). Remove the preview modules when the live catalog alone is enough for demos.
+- **Empty states:** Home **Latest arrivals** keeps **min-height** and a dashed panel when there are zero combined rows (no PHP parts and no scannable preview images).
+- **Home “Brands We Cover” strip:** Logos load from **`public/images/brandlogos/`** (discovered at runtime on the server), infinite CSS marquee with subtle perspective, **`prefers-reduced-motion`** static layout, and **`next/image`**.
 
 ### Customer vs admin
 
-The **customer** experience uses the `(customer)` layout with `CustomerProviders` (mock sign-in + cart). **Admin** routes omit that shell and use `AdminLayoutShell` plus the dedicated login screen so **customer and staff sign-in are never merged**. Staff demo state persists separately via **`AdminSessionProvider`** in the root `Providers` tree.
+- **Customer** routes use **`CustomerProviders`** (real storefront session via PHP `customer-*` endpoints).
+- **Admin** uses **`AdminLayoutShell`** and **`AdminSessionProvider`**; login is **`/admin/login`** only.
 
-### Tracking
+### Environment
 
-See **`tracker.md`** for phase-by-phase completion, touched files, and theme/architecture notes (including **Phase 12** customer refinement and **Phase 13** admin shell details).
+| Variable | Purpose |
+|----------|---------|
+| `MONGODB_URI` | MongoDB (PHP + seed scripts). |
+| `PHP_BACKEND_URL` | e.g. `http://127.0.0.1:8080` — Next rewrites + RSC server fetch. |
+| `ADMIN_SEED_PASSWORD_FAHAD`, `ADMIN_SEED_PASSWORD_OBAI` | Optional — **`scripts/seed-admins.mjs`** only. |
+
+### Tracking & audit
+
+- **`tracker.md`** — phase history and **final stabilization** notes (files, decisions, remaining issues).
+- **`DATABASE_AUDIT.md`** — schema, endpoint map, and **§10 truth audit** (Working / Partial / Not Done / Blocked).
+- **`php/README.md`** — PHP setup and endpoint list.
+
+### Next teammate / backlog (honest)
+
+- **Order history / `/orders`:** not wired to PHP list APIs (**Not Done** in audit).
+- **Dedicated `customers` collection** and separate storefront credentials (if required by course later).
+- **Production-grade uploads** (virus scan, ACL, CDN) beyond the current **PHP `public/uploads`** + **`admin/upload-image.php`** flow.
+- **Richer client-side validation** (optional polish on top of HTML5 `required`).
+
+---
+
+## Fahad — Frontend (historical product note)
+
+Customer-facing and admin UIs for **Gulf Parts Co**: restrained automotive storefront built with **Next.js App Router**, **TypeScript**, **Tailwind CSS v4**, **shadcn/ui**, and **next-themes**. Branding: navbar **G**, footer **Gulf Parts Co**, neutral dark “graphite” cards. Shop: sticky filters, pagination (9 per page). See **`tracker.md`** for full phase checklist (Phases 1–13 UI milestones).

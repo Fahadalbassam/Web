@@ -16,12 +16,15 @@ import { useCustomerAuth } from "@/providers/customer-auth-provider";
 import { useAdminSession } from "@/providers/admin-session-provider";
 
 export function UserMenu() {
-  const { userLabel, logout } = useCustomerAuth();
+  const { userLabel, userEmail, logout } = useCustomerAuth();
   const { isAdminAuthenticated, hydrated } = useAdminSession();
   const adminHref =
     hydrated && isAdminAuthenticated ? "/admin/dashboard" : "/admin/login";
-  const initials = userLabel
-    .split(" ")
+  const initialsSource = userEmail ?? userLabel;
+  const initials = initialsSource
+    .replace(/[^a-zA-Z0-9@._-]+/g, " ")
+    .split(/[\s@]+/)
+    .filter(Boolean)
     .map((w) => w[0])
     .join("")
     .slice(0, 2)
@@ -49,6 +52,9 @@ export function UserMenu() {
       >
         <DropdownMenuLabel className="font-normal">
           <span className="text-sm font-medium text-foreground">{userLabel}</span>
+          {userEmail ? (
+            <span className="block truncate text-xs text-muted-foreground">{userEmail}</span>
+          ) : null}
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-border" />
         <DropdownMenuItem asChild className="cursor-pointer">

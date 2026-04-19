@@ -7,11 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { phpBrowserUrl } from "@/lib/php-backend";
 import { useCart } from "@/providers/cart-provider";
+import { useCustomerAuth } from "@/providers/customer-auth-provider";
+import { useStorefrontAuthModal } from "@/providers/storefront-auth-modal-provider";
+import { SarCurrency } from "@/components/site/sar-currency";
 
 export function CheckoutForm() {
-  const { lines, subtotal, clear } = useCart();
+  const { lines, subtotal, clear, refresh } = useCart();
+  const { isLoggedIn, hydrated } = useCustomerAuth();
+  const { openLogin } = useStorefrontAuthModal();
   const [placed, setPlaced] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState(false);
 
   if (lines.length === 0 && !placed) {
     return (
@@ -24,18 +32,87 @@ export function CheckoutForm() {
     );
   }
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
+  if (!hydrated) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+        <PageIntro title="Checkout" description="Loading your session…" />
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+        <PageIntro
+          title="Sign in to check out"
+          description="Your cart is kept in this browser session. Sign in with your Gulf Parts Co account to enter shipping details and place the order."
+        />
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <Button type="button" onClick={() => openLogin("/checkout")}>
+            Sign in
+          </Button>
+          <Button asChild variant="outline" className="border-border bg-background">
+            <Link href="/cart">Back to cart</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const handlePlaceOrder = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    clear();
-    setPlaced(true);
+    setError(null);
+    setPending(true);
+    const fd = new FormData(e.currentTarget);
+    const body = {
+      fullName: String(fd.get("fullName") ?? "").trim(),
+      email: String(fd.get("email") ?? "").trim(),
+      phone: String(fd.get("phone") ?? "").trim(),
+      line1: String(fd.get("line1") ?? "").trim(),
+      line2: String(fd.get("line2") ?? "").trim(),
+      city: String(fd.get("city") ?? "").trim(),
+      state: String(fd.get("state") ?? "").trim(),
+      postal: String(fd.get("postal") ?? "").trim(),
+    };
+
+    try {
+      const res = await fetch(phpBrowserUrl("checkout/place.php"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+
+      if (res.status === 401) {
+        setError(j.error ?? "Please sign in again to place your order.");
+        openLogin("/checkout");
+        setPending(false);
+        return;
+      }
+
+      if (!res.ok) {
+        setError(j.error ?? "Could not place order");
+        setPending(false);
+        return;
+      }
+
+      await clear();
+      await refresh();
+      setPlaced(true);
+    } catch {
+      setError("Could not reach the checkout service.");
+    } finally {
+      setPending(false);
+    }
   };
 
   if (placed) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center sm:px-6">
         <PageIntro
-          title="Order placed (mock)"
-          description="No payment was processed. This flow demonstrates the checkout layout only."
+          title="Order placed"
+          description="Your order was recorded and inventory was updated. You may see a cookie set for recent order reference."
         />
         <Button asChild className="mt-8">
           <Link href="/shop">Back to shop</Link>
@@ -48,10 +125,13 @@ export function CheckoutForm() {
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 md:py-14">
       <PageIntro
         title="Checkout"
-        description="Shipping details and a concise order summary — aligned with support and settings forms."
+        description="Shipping details and order summary — your cart is tied to your current browser session."
       />
 
-      <form onSubmit={handlePlaceOrder} className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+      <form
+        onSubmit={(e) => void handlePlaceOrder(e)}
+        className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]"
+      >
         <div className="space-y-8">
           <section className="rounded-xl border border-border bg-card p-6 text-card-foreground">
             <h2 className="text-sm font-semibold text-foreground">Customer</h2>
@@ -117,20 +197,25 @@ export function CheckoutForm() {
                   {part.name}{" "}
                   <span className="text-muted-foreground">×{quantity}</span>
                 </span>
-                <span className="shrink-0 tabular-nums">${(part.price * quantity).toFixed(2)}</span>
+                <SarCurrency
+                  amount={part.price * quantity}
+                  className="shrink-0 text-foreground"
+                />
               </li>
             ))}
           </ul>
           <Separator className="bg-border" />
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Subtotal</span>
-            <span className="text-lg font-semibold tabular-nums text-foreground">${subtotal.toFixed(2)}</span>
+            <SarCurrency amount={subtotal} className="text-lg font-semibold text-foreground" />
           </div>
-          <Button type="submit" size="lg" className="w-full">
-            Place order
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          <Button type="submit" size="lg" className="w-full" disabled={pending}>
+            {pending ? "Placing…" : "Place order"}
           </Button>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            By placing this order you acknowledge the beta terms — no payment or fulfillment occurs.
+            By placing this order you acknowledge the beta terms — payment processing is out of scope;
+            Your order is saved and inventory is updated automatically.
           </p>
         </aside>
       </form>

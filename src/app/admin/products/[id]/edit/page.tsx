@@ -1,16 +1,19 @@
 import { notFound } from "next/navigation";
-import { mockParts } from "@/lib/mock/parts";
+import { fetchProductByIdAdmin } from "@/lib/catalog-fetch";
 import { AdminProductForm } from "@/components/admin/admin-product-form";
+
+export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ id: string }> };
 
-export async function generateStaticParams() {
-  return mockParts.map((p) => ({ id: p.id }));
-}
-
 export default async function AdminEditProductPage({ params }: Props) {
   const { id } = await params;
-  const part = mockParts.find((p) => p.id === id);
+  let part = null;
+  try {
+    part = await fetchProductByIdAdmin(id);
+  } catch {
+    notFound();
+  }
   if (!part) notFound();
 
   return (
@@ -21,7 +24,7 @@ export default async function AdminEditProductPage({ params }: Props) {
           {part.name} · <span className="font-mono text-xs">{part.partNumber}</span>
         </p>
       </div>
-      <AdminProductForm mode="edit" initial={part} />
+      <AdminProductForm mode="edit" productId={part.id} initial={part} />
     </div>
   );
 }

@@ -28,10 +28,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarSeparator,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useAdminSession } from "@/providers/admin-session-provider";
+import { AdminAccessGate } from "@/components/admin/admin-access-gate";
 
 function AdminLogoutDialog({
   open,
@@ -43,8 +43,8 @@ function AdminLogoutDialog({
   const router = useRouter();
   const { logout } = useAdminSession();
 
-  const confirm = () => {
-    logout();
+  const confirm = async () => {
+    await logout();
     onOpenChange(false);
     router.push("/admin/login");
   };
@@ -55,7 +55,8 @@ function AdminLogoutDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Sign out of admin?</AlertDialogTitle>
           <AlertDialogDescription>
-            You will return to the admin login screen. Storefront browsing is unchanged.
+            You will return to the admin login screen. Your staff session and linked storefront sign-in for this
+            browser are cleared; the session cart remains until you clear it or check out.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -163,9 +164,10 @@ export function AdminLayoutShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SidebarProvider defaultOpen>
-      <AdminSidebarNav />
-      <SidebarInset>
+    <AdminAccessGate>
+      <SidebarProvider defaultOpen>
+        <AdminSidebarNav />
+        <SidebarInset>
         <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80 md:px-6">
           <SidebarTrigger className="md:hidden" />
           <div className="flex flex-1 items-center justify-between gap-3">
@@ -181,6 +183,7 @@ export function AdminLayoutShell({ children }: { children: React.ReactNode }) {
         </header>
         <div className="flex-1 px-4 py-6 md:px-6">{children}</div>
       </SidebarInset>
-    </SidebarProvider>
+      </SidebarProvider>
+    </AdminAccessGate>
   );
 }
