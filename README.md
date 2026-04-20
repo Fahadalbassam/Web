@@ -35,3 +35,25 @@ You can also run **two terminals**: one with `npm run dev`, one with your `php -
 - **`php/README.md`** — PHP endpoints, env loading, composer.
 - **`DATABASE_AUDIT.md`** — collections, who talks to what.
 - **`tracker.md`** — what we changed over time / phases.
+
+Home page: 
+
+<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/d4191f84-8f84-4faf-8203-cd2561806cdd" />
+<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/24833e00-c834-43d0-b025-133187ba2d02" />
+
+Shop page: 
+<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/e91e0370-9d58-4821-8c68-927a9c0fe760" />
+<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/6e126ea8-c567-48cd-9c6f-3afcc72cc9a7" />
+<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/d3234a65-d4ed-43ff-bf1e-01de3cc97c52" />
+
+cart + checkout + order:
+<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/2489d606-30e4-4289-a0af-8d4d0c707921" />
+<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/2c6ff482-71a4-4cd7-ad38-e3b53179ebae" />
+<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/d9bb1d89-538b-4985-ad58-2ec8ea6c5922" />
+<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/624f02fb-a561-4970-bcca-828a37cc22a8" />
+
+preview of admin pov:
+<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/dc33f6bd-ce20-4cfa-a1a4-57742f748e45" />
+<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/443e64d2-0beb-450f-bc86-d6e7debec027" />
+<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/55620b2a-44c1-4328-a867-1f947aef9ae1" />
+
