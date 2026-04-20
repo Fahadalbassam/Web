@@ -7,6 +7,8 @@ export type StorefrontRole = "user" | "admin";
 
 type CustomerAuthContextValue = {
   isLoggedIn: boolean;
+  /** Mongo user id (hex string) when authenticated. */
+  userId: string | null;
   /** Present after hydration when authenticated. */
   role: StorefrontRole | null;
   /** Display name for menu (email-based). */
@@ -35,6 +37,7 @@ function labelFromEmail(email: string): string {
 
 export function CustomerAuthProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = React.useState(false);
+  const [userId, setUserId] = React.useState<string | null>(null);
   const [email, setEmail] = React.useState<string | null>(null);
   const [role, setRole] = React.useState<StorefrontRole | null>(null);
 
@@ -46,18 +49,22 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       });
       const data = (await res.json()) as {
         authenticated?: boolean;
+        userId?: string;
         email?: string;
         role?: string;
       };
       if (data.authenticated === true && data.email) {
+        setUserId(data.userId ? String(data.userId) : null);
         setEmail(String(data.email));
         const r = data.role === "admin" ? "admin" : "user";
         setRole(r);
       } else {
+        setUserId(null);
         setEmail(null);
         setRole(null);
       }
     } catch {
+      setUserId(null);
       setEmail(null);
       setRole(null);
     } finally {
@@ -88,6 +95,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
         return { ok: false as const, error: body.error ?? "Invalid credentials" };
       }
       await refresh();
+      window.dispatchEvent(new Event("gp-cart-refresh"));
       return { ok: true as const };
     },
     [refresh]
@@ -106,6 +114,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
         return { ok: false as const, error: body.error ?? "Could not register" };
       }
       await refresh();
+      window.dispatchEvent(new Event("gp-cart-refresh"));
       return { ok: true as const };
     },
     [refresh]
@@ -120,6 +129,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
     } catch {
       /* ignore */
     }
+    setUserId(null);
     setEmail(null);
     setRole(null);
     await refresh();
@@ -128,6 +138,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
   const value = React.useMemo(
     () => ({
       isLoggedIn: Boolean(email),
+      userId,
       role,
       userLabel: email ? labelFromEmail(email) : "Guest",
       userEmail: email,
@@ -137,7 +148,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       registerAccount,
       logout,
     }),
-    [email, role, hydrated, refresh, loginWithCredentials, registerAccount, logout]
+    [userId, email, role, hydrated, refresh, loginWithCredentials, registerAccount, logout]
   );
 
   return <CustomerAuthContext.Provider value={value}>{children}</CustomerAuthContext.Provider>;

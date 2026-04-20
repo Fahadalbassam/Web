@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { PageIntro } from "@/components/site/page-intro";
@@ -11,12 +10,21 @@ import { useCart } from "@/providers/cart-provider";
 import { useCustomerAuth } from "@/providers/customer-auth-provider";
 import { useStorefrontAuthModal } from "@/providers/storefront-auth-modal-provider";
 import { resolvePartImageSrc } from "@/lib/catalog/resolve-part-image";
+import { CatalogPartImage } from "@/components/site/catalog-part-image";
 import { SarCurrency } from "@/components/site/sar-currency";
 
 export function CartView() {
-  const { lines, setQuantity, remove, subtotal } = useCart();
+  const { lines, setQuantity, remove, subtotal, hydrated } = useCart();
   const { isLoggedIn } = useCustomerAuth();
   const { openLogin } = useStorefrontAuthModal();
+
+  if (!hydrated) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+        <PageIntro title="Cart" description="Loading your cart from the server session…" />
+      </div>
+    );
+  }
 
   if (lines.length === 0) {
     return (
@@ -42,13 +50,21 @@ export function CartView() {
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
-          {lines.map(({ part, quantity }) => (
+          {lines.map(({ part, quantity, cartSlug }) => {
+            const cartKey = cartSlug ?? part.slug;
+            return (
             <div
-              key={part.slug}
+              key={cartKey}
               className="flex gap-4 rounded-xl border border-border bg-card p-4 text-card-foreground"
             >
               <div className="relative size-24 shrink-0 overflow-hidden rounded-lg bg-muted">
-                <Image src={resolvePartImageSrc(part.image)} alt="" fill className="object-cover" sizes="96px" />
+                <CatalogPartImage
+                  src={resolvePartImageSrc(part.image)}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="96px"
+                />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -69,20 +85,23 @@ export function CartView() {
                     variant="ghost"
                     size="icon"
                     className="text-muted-foreground hover:text-destructive"
-                    onClick={() => void remove(part.slug)}
+                    onClick={() => void remove(cartKey)}
                     aria-label={`Remove ${part.name}`}
                   >
                     <Trash2 className="size-4" />
                   </Button>
                 </div>
                 <div className="mt-auto flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    <SarCurrency amount={part.price} className="text-xs text-muted-foreground" /> each
+                  </p>
                   <div className="inline-flex items-center rounded-md border border-border bg-background">
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       className="size-9 rounded-none"
-                      onClick={() => void setQuantity(part.slug, quantity - 1)}
+                      onClick={() => void setQuantity(cartKey, quantity - 1)}
                       aria-label="Decrease quantity"
                     >
                       <Minus className="size-4" />
@@ -93,7 +112,7 @@ export function CartView() {
                       variant="ghost"
                       size="icon"
                       className="size-9 rounded-none"
-                      onClick={() => void setQuantity(part.slug, quantity + 1)}
+                      onClick={() => void setQuantity(cartKey, quantity + 1)}
                       aria-label="Increase quantity"
                     >
                       <Plus className="size-4" />
@@ -106,7 +125,8 @@ export function CartView() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         <aside className="h-fit rounded-xl border border-border bg-surface-2/50 p-6">

@@ -16,6 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 gp_require_checkout_customer();
 
+$userId = (string) ($_SESSION['gp_checkout_customer_id'] ?? $_SESSION['gp_user_id'] ?? '');
+$userEmail = strtolower(trim((string) ($_SESSION['gp_checkout_customer_email'] ?? $_SESSION['gp_user_email'] ?? '')));
+
 $lines = gp_cart_hydrate();
 if (count($lines) < 1) {
     http_response_code(400);
@@ -40,6 +43,14 @@ $shipping = [
 if ($customer['fullName'] === '' || $customer['email'] === '' || $shipping['line1'] === '' || $shipping['city'] === '' || $shipping['postal'] === '') {
     http_response_code(400);
     echo json_encode(['error' => 'Missing required fields']);
+    exit;
+}
+
+// Course / security: order is always tied to the authenticated session — contact email must match account.
+$customerEmailNorm = strtolower(trim($customer['email']));
+if ($customerEmailNorm === '' || $customerEmailNorm !== $userEmail) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Contact email must match your signed-in account']);
     exit;
 }
 
@@ -110,6 +121,7 @@ foreach ($lines as $row) {
         'productId' => $oidStr,
         'slug' => $slug,
         'name' => (string) ($part['name'] ?? ''),
+        'image' => (string) ($part['image'] ?? ''),
         'quantity' => $qty,
         'unitPrice' => $unit,
         'lineTotal' => $lineTotal,
@@ -117,12 +129,19 @@ foreach ($lines as $row) {
 }
 
 $now = new \MongoDB\BSON\UTCDateTime();
+$subtotal = round($total, 2);
 $orderDoc = [
+    'userId' => $userId,
+    'userEmail' => $userEmail,
+    'customerName' => $customer['fullName'],
     'createdAt' => $now,
+    'updatedAt' => $now,
     'customer' => $customer,
     'shipping' => $shipping,
-    'lines' => $orderLines,
-    'total' => round($total, 2),
+    'items' => $orderLines,
+    'subtotal' => $subtotal,
+    'total' => $subtotal,
+    'status' => 'pending',
 ];
 
 try {

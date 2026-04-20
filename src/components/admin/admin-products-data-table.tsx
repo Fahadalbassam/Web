@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -14,6 +13,7 @@ import {
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import type { Part, StockStatus } from "@/lib/catalog/part";
 import { resolvePartImageSrc } from "@/lib/catalog/resolve-part-image";
+import { CatalogPartImage } from "@/components/site/catalog-part-image";
 import { SarCurrency } from "@/components/site/sar-currency";
 import { phpBrowserUrl } from "@/lib/php-backend";
 import { Badge } from "@/components/ui/badge";
@@ -192,7 +192,7 @@ export function AdminProductsDataTable({ initialParts }: { initialParts: Part[] 
         header: "",
         cell: ({ row }) => (
           <div className="relative size-10 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
-            <Image
+            <CatalogPartImage
               src={resolvePartImageSrc(row.original.image)}
               alt={row.original.name}
               fill

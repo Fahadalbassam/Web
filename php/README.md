@@ -59,8 +59,12 @@ Set in `.env.local`:
 | Admin | `admin/products.php` | GET, POST |
 | Admin | `admin/product.php` | GET, PATCH, DELETE |
 | Admin | `admin/upload-image.php` | POST `multipart/form-data` field **`file`** (JPEG/PNG/WebP/GIF, max 5MB) |
+| Admin | `admin/orders.php` | GET — order summaries (newest first) |
+| Admin | `admin/order.php` | GET `?id=`, PATCH JSON `{ id, status }` — detail + workflow status |
+| Storefront | `orders/mine.php` | GET — current user’s order summaries (**401** if guest) |
+| Storefront | `orders/detail.php` | GET `?id=` — one order (**403** if not owned) |
 | Cart | `cart/get.php` | GET |
 | Cart | `cart/add.php`, `update.php`, `remove.php`, `clear.php` | POST JSON |
-| Checkout | `checkout/place.php` | POST JSON — **requires** storefront checkout session (see `gp_require_checkout_customer` in `app.php`) |
+| Checkout | `checkout/place.php` | POST JSON — **requires** storefront checkout session (see `gp_require_checkout_customer` in `app.php`); writes **`orders`** + stock decrement |
 
 Shared code: `php/include/app.php`, `php/include/cart.php`, `php/include/load-env.php`.

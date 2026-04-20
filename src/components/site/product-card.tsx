@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { Part } from "@/lib/catalog/part";
 import { resolvePartImageSrc } from "@/lib/catalog/resolve-part-image";
+import { CatalogPartImage } from "@/components/site/catalog-part-image";
 import { SarCurrency } from "@/components/site/sar-currency";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -49,7 +49,7 @@ export function ProductCard({
       <CardHeader className="block space-y-0 border-0 p-0 shadow-none">
         <Link href={detailHref} className="block outline-none">
           <div className="relative aspect-[4/3] w-full overflow-hidden bg-white rounded-t-xl">
-            <Image
+            <CatalogPartImage
               src={img}
               alt={part.name}
               fill

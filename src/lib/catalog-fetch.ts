@@ -89,3 +89,49 @@ export async function fetchSupportTicketsAdmin(q?: string): Promise<SupportTicke
     return [];
   }
 }
+
+export type AdminOrderSummaryRow = {
+  id: string;
+  userId: string;
+  userEmail: string;
+  customerName: string;
+  total: number;
+  status: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  itemCount: number;
+};
+
+export async function fetchAdminOrders(): Promise<AdminOrderSummaryRow[]> {
+  try {
+    const res = await phpServerFetch(`/admin/orders.php`);
+    if (!res.ok) return [];
+    const data = (await res.json()) as { orders?: AdminOrderSummaryRow[] };
+    return data.orders ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export type AdminOrderDetail = {
+  id: string;
+  userId: string;
+  userEmail: string;
+  customerName: string;
+  customer: Record<string, string>;
+  shipping: Record<string, string>;
+  items: Array<{
+    productId: string;
+    slug: string;
+    name: string;
+    image: string;
+    unitPrice: number;
+    quantity: number;
+    lineTotal: number;
+  }>;
+  subtotal: number;
+  total: number;
+  status: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+};

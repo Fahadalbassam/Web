@@ -1,5 +1,3 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# Next.js version note
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+This project may use Next.js APIs, conventions, and file structure that differ from older public documentation. Before changing routing, data fetching, or config, read the guide shipped with this repo in `node_modules/next/dist/docs/` and note any deprecation warnings from the framework.

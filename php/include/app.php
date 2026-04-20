@@ -44,6 +44,11 @@ function gp_mongo_database(): \MongoDB\Database
     }
 
     $uri = gp_require_env('MONGODB_URI');
+    // .env mistakes like `MONGODB_URI=MONGODB_URI=mongodb+srv://...` end up here otherwise.
+    while (str_starts_with($uri, 'MONGODB_URI=')) {
+        $uri = substr($uri, strlen('MONGODB_URI='));
+    }
+    $uri = trim($uri);
     $client = new Client($uri);
 
     $dbName = null;
@@ -408,6 +413,146 @@ function gp_require_checkout_customer(): void
         echo json_encode(['error' => 'Sign in required to place an order']);
         exit;
     }
+}
+
+/**
+ * Storefront user resolved against MongoDB (same rules as customer-me.php).
+ *
+ * @return array{id:string,email:string,role:string}|null
+ */
+function gp_storefront_authenticated_user(): ?array
+{
+    gp_session_start();
+    $id = (string) ($_SESSION['gp_user_id'] ?? $_SESSION['gp_checkout_customer_id'] ?? '');
+    $sessEmail = strtolower(trim((string) ($_SESSION['gp_user_email'] ?? $_SESSION['gp_checkout_customer_email'] ?? '')));
+    if ($id === '' || $sessEmail === '') {
+        return null;
+    }
+    $doc = gp_find_auth_doc_by_id($id);
+    if ($doc === null) {
+        gp_clear_auth_identity_keys();
+        return null;
+    }
+    $dbEmail = strtolower(trim(gp_auth_scalar_string($doc['email'] ?? '', '')));
+    if ($dbEmail === '' || $dbEmail !== $sessEmail) {
+        gp_clear_auth_identity_keys();
+        return null;
+    }
+    $role = gp_auth_scalar_string($doc['role'] ?? 'user', 'user');
+    if ($role !== 'admin' && $role !== 'user') {
+        $role = 'user';
+    }
+
+    return ['id' => $id, 'email' => $sessEmail, 'role' => $role];
+}
+
+/** @return list<string> */
+function gp_order_status_values(): array
+{
+    return ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+}
+
+function gp_order_normalize_status(string $status): string
+{
+    $s = strtolower(trim($status));
+    $allowed = gp_order_status_values();
+
+    return in_array($s, $allowed, true) ? $s : 'pending';
+}
+
+/**
+ * Line items: prefer `items`; legacy checkout docs used `lines` (often without `image`).
+ *
+ * @param array<string,mixed> $doc
+ * @return list<array<string,mixed>>
+ */
+function gp_order_items_from_doc(array $doc): array
+{
+    $raw = $doc['items'] ?? $doc['lines'] ?? null;
+    if (!is_array($raw)) {
+        return [];
+    }
+    $out = [];
+    foreach ($raw as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $out[] = [
+            'productId' => gp_auth_scalar_string($row['productId'] ?? ''),
+            'slug' => gp_auth_scalar_string($row['slug'] ?? ''),
+            'name' => gp_auth_scalar_string($row['name'] ?? ''),
+            'image' => gp_auth_scalar_string($row['image'] ?? ''),
+            'unitPrice' => (float) ($row['unitPrice'] ?? 0),
+            'quantity' => (int) ($row['quantity'] ?? 0),
+            'lineTotal' => (float) ($row['lineTotal'] ?? 0),
+        ];
+    }
+
+    return $out;
+}
+
+/**
+ * Full order shape for customer + admin JSON APIs.
+ *
+ * @param array<string,mixed> $doc
+ * @return array<string,mixed>
+ */
+function gp_order_public_array(array $doc): array
+{
+    $id = gp_oid_string($doc) ?? '';
+    $items = gp_order_items_from_doc($doc);
+    $subtotal = (float) ($doc['subtotal'] ?? 0);
+    $total = (float) ($doc['total'] ?? 0);
+    if ($subtotal <= 0 && $total > 0) {
+        $subtotal = $total;
+    }
+    if ($total <= 0 && $subtotal > 0) {
+        $total = $subtotal;
+    }
+
+    $cust = $doc['customer'] ?? [];
+    $customerArr = is_array($cust) ? $cust : [];
+    $nameFromCustomer = gp_auth_scalar_string($customerArr['fullName'] ?? '', '');
+
+    return [
+        'id' => $id,
+        'userId' => gp_auth_scalar_string($doc['userId'] ?? ''),
+        'userEmail' => gp_auth_scalar_string($doc['userEmail'] ?? ''),
+        'customerName' => gp_auth_scalar_string($doc['customerName'] ?? $nameFromCustomer, ''),
+        'customer' => $customerArr,
+        'shipping' => is_array($doc['shipping'] ?? null) ? $doc['shipping'] : [],
+        'items' => $items,
+        'subtotal' => round($subtotal, 2),
+        'total' => round($total, 2),
+        'status' => gp_order_normalize_status(gp_auth_scalar_string($doc['status'] ?? '', 'pending')),
+        'createdAt' => gp_iso_datetime($doc['createdAt'] ?? null),
+        'updatedAt' => gp_iso_datetime($doc['updatedAt'] ?? null),
+    ];
+}
+
+/**
+ * @param array<string,mixed> $orderDoc
+ */
+function gp_order_user_can_view(array $orderDoc, string $sessionUserId, string $sessionEmail): bool
+{
+    $sessionEmail = strtolower(trim($sessionEmail));
+    $uid = gp_auth_scalar_string($orderDoc['userId'] ?? '');
+    if ($uid !== '' && $uid === $sessionUserId) {
+        return true;
+    }
+    $ue = strtolower(trim(gp_auth_scalar_string($orderDoc['userEmail'] ?? '')));
+    if ($ue !== '' && $ue === $sessionEmail) {
+        return true;
+    }
+    $cust = $orderDoc['customer'] ?? [];
+    if (is_array($cust)) {
+        $ce = strtolower(trim(gp_auth_scalar_string($cust['email'] ?? '')));
+        if ($ce !== '' && $ce === $sessionEmail) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /** @return array<string,mixed> */

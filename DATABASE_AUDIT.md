@@ -39,7 +39,7 @@
 | Registration | `POST /backend/auth/register.php` → inserts **`users`** then signs in |
 | Admin logout / storefront logout | `POST /backend/auth/logout.php`, `POST /backend/auth/customer-logout.php` (both clear the same identity keys; cart **`gp_cart`** preserved) |
 | Admin session check (middleware + `AdminSessionProvider`) | `GET /backend/auth/me.php` — **`authenticated: true` only if DB `role === "admin"`** |
-| Storefront session + role | `GET /backend/auth/customer-me.php` — **`authenticated`**, **`email`**, **`role`** (`user` \| `admin`) |
+| Storefront session + role | `GET /backend/auth/customer-me.php` — **`authenticated`**, **`userId`**, **`email`**, **`role`** (`user` \| `admin`) |
 | Catalog categories | `GET /backend/catalog/categories.php` |
 | Admin image upload | `POST /backend/admin/upload-image.php` (multipart `file`; requires admin session) |
 | Support form | `POST /backend/support/ticket.php` (public; optional **`userId`** from session) |
@@ -49,6 +49,8 @@
 | Admin edit load (RSC) | `GET /backend/admin/product.php?id=` |
 | Admin save (form) | `POST /backend/admin/products.php`, `PATCH /backend/admin/product.php?id=` |
 | Admin delete (table) | `DELETE /backend/admin/product.php?id=` |
+| Admin orders (RSC + client) | `GET /backend/admin/orders.php`, `GET /backend/admin/order.php?id=`, `PATCH /backend/admin/order.php` JSON `{ id, status }` |
+| Customer orders | `GET /backend/orders/mine.php`, `GET /backend/orders/detail.php?id=` (storefront session + ownership) |
 | Cart | `GET/POST /backend/cart/*.php` |
 | Checkout | `POST /backend/checkout/place.php` (requires checkout identity in session) |
 
@@ -62,8 +64,41 @@
 | `users` | Storefront accounts: `email`, `passwordHash` (**`password_hash()` / `password_verify()` only**), `role` (`user` \| `admin`), `createdAt`, `updatedAt`. |
 | `admins` | **Legacy / seed path:** same shape as typical staff rows (`email`, `passwordHash`, `role: "admin"`). **`gp_find_auth_doc_by_email`** checks **`users` first**, then **`admins`**, so seeded staff keep working without manual migration. New registrations go to **`users`**. |
 | `categories` | Canonical category labels (`name`, timestamps). Seeded by `npm run db:seed-admins`; merged in API with distinct `products.category`. |
-| `orders` | Created by **`checkout/place.php`** with lines, customer, shipping, `total`. |
+| `orders` | **Final schema** — see §4b. Created by **`checkout/place.php`**; listed/updated via **`orders/*`** (customer) and **`admin/orders.php`** / **`admin/order.php`** (staff). Legacy docs may still use field **`lines`** instead of **`items`** (read APIs normalize). |
 | `supportTickets` | `name`, `email`, `subject`, `message`, `status` (`open` \| `in_progress` \| `closed`), `createdAt`, `updatedAt`, optional `userId`. |
+
+---
+
+## 4b. Orders collection — final schema
+
+**Writer:** `checkout/place.php` (logged-in checkout session only). **Readers:** `orders/mine.php`, `orders/detail.php`, `admin/orders.php`, `admin/order.php`.
+
+| Field | Type | Notes |
+|-------|------|--------|
+| `_id` | ObjectId | Order id (hex string in JSON APIs). |
+| `userId` | string | Storefront account id (`users` / unified session). |
+| `userEmail` | string | Normalized account email from session (authoritative ownership). |
+| `customerName` | string | Checkout form full name (duplicate of `customer.fullName` for indexing/display). |
+| `customer` | object | `fullName`, `email`, `phone` from checkout form. |
+| `shipping` | object | `line1`, `line2`, `city`, `state`, `postal`. |
+| `items` | array | Order lines (legacy docs: **`lines`**). Each element: `productId`, `slug`, `name`, `image`, `unitPrice`, `quantity`, `lineTotal`. |
+| `subtotal` | number | Sum of line totals (currently equals `total`; no tax/shipping fee in this beta). |
+| `total` | number | Charged total (SAR). |
+| `status` | string | One of: **`pending`**, **`confirmed`**, **`processing`**, **`shipped`**, **`delivered`**, **`cancelled`**. New orders start **`pending`**. |
+| `createdAt` | UTCDateTime | Insert time. |
+| `updatedAt` | UTCDateTime | Last update (status changes from admin). |
+
+**Order status model:** scalar string only; admin updates via **`PATCH admin/order.php`**. Invalid PATCH values are rejected (HTTP 400).
+
+**Guest checkout:** **Not allowed.** `gp_require_checkout_customer()` returns **401** if session lacks checkout identity; storefront UI gates **`/checkout`** behind sign-in. Session cart **`gp_cart`** is unchanged by login/register/logout so guests can add to cart, sign in, then check out.
+
+**Checkout identity + contact email:** `checkout/place.php` stores authoritative **`userId`** / **`userEmail`** from the PHP session. The JSON **`customer.email`** field must **match** the session account email (normalized); otherwise the request fails with **400** so an order cannot be attributed to another address while signed in.
+
+**Cart / session / checkout flow:** Cart lines are **`{ slug, quantity }`** in `$_SESSION['gp_cart']`. **`cart/get.php`** hydrates from **`products`** via **`gp_cart_hydrate()`** (quantities capped by live stock). Storefront **`CartProvider`** waits for the first **`cart/get.php`** response before showing empty states; after successful **`customer-login.php`** / **`register.php`**, the client dispatches **`gp-cart-refresh`** so the UI re-fetches lines without a full reload (same PHP session). **`checkout/place.php`** re-hydrates, decrements **`stockQty`** per line with rollback on failure, inserts **`orders`**, clears session cart, sets optional **`gp_last_order_id`** cookie.
+
+**Admin order visibility:** **`admin/orders.php`** lists recent orders (summary). **`admin/order.php?id=`** returns full detail; **`PATCH`** updates **`status`** / **`updatedAt`**. Protected by **`gp_require_admin()`**.
+
+**User order history:** **`orders/mine.php`** returns summaries for the authenticated storefront user (Mongo query + **`gp_order_user_can_view`**). **`orders/detail.php?id=`** returns one order or **403** if not owned. Guests receive **401** and are prompted to sign in on **`/orders`**.
 
 ---
 
@@ -143,7 +178,7 @@
 | PDP quantity handling | **Working** | Client respects stock from hydrated cart lines; PHP rejects over-stock on checkout. |
 | Cart icon / count | **Working** | `CartProvider` syncs from `cart/get.php`. |
 | Guest cart | **Working** | Session cart; no login required to add/update. |
-| Storefront login / logout / register | **Working** | **`auth/register.php`** creates **`users`**; **`customer-login.php`** matches **`login.php`**; **`customer-me.php`** returns **`role`**; **`CustomerAuthProvider`**. Logout clears identity keys only; cart preserved. |
+| Storefront login / logout / register | **Working** | **`auth/register.php`** creates **`users`**; **`customer-login.php`** matches **`login.php`**; **`customer-me.php`** returns **`userId`**, **`email`**, **`role`**; **`CustomerAuthProvider`**. Logout clears identity keys only; cart preserved. |
 | Admin login / logout | **Working** | Same credentials as storefront when staff exists in **`users`** or **`admins`** with **`role: admin`**. **`logout.php`** / **`customer-logout.php`** clear the same identity keys. **`me.php`** = admin-only probe for middleware. |
 | Admin route protection (Next `/admin/*`) | **Working** | **`src/middleware.ts`** checks **`me.php`**; guests → **`/?login=1`**, signed-in non-admins → **`/`**; **`/admin/login`** is a compatibility stub. **`AdminAccessGate`** mirrors redirects via **`customer-me.php`**. PHP **`gp_require_admin`** + DB role on every admin API. |
 | Non-admin users blocked from `/admin` | **Working** | **`auth/me.php`** is false for **`role: user`**; middleware sends them to **`/`**; PHP **`gp_require_admin`** on APIs. |
@@ -154,10 +189,14 @@
 | Product publish → home / shop | **Working** | Storefront shows parts where **`published !== false`** (`gp_match_published_catalog()`), sorted by **`createdAt` desc** in `catalog/products.php`; home uses `?published=1&limit=4`. |
 | PDP by slug | **Working** | `catalog/product.php?slug=` |
 | Checkout after login (continue flow) | **Working** | Modal `openLogin("/checkout")` + `StorefrontAuthModalProvider` redirect; cart unchanged in session. |
+| Checkout contact email = session account | **Working** | `checkout/place.php` returns **400** if JSON `customer.email` ≠ session email; UI uses read-only session email. |
+| Cart UI hydration (no false “empty” flash) | **Working** | `CartProvider.hydrated` + loading states on `/cart` and `/checkout`. |
 | Checkout modify lines / clear cart / place order | **Working** | Cart PHP + `checkout/place.php` with auth gate. |
 | Stock decrement after buy | **Working** | In `checkout/place.php` loop with rollback on failure. |
 | Cookies / continuation (`PHPSESSID`, `gp_last_order_id`) | **Working** | Standard session; last-order cookie set on success (HttpOnly false by design there). |
-| Past purchases / order history UI | **Not Done** | `gp_last_order_id` exists; `/orders` is not wired to PHP order list. |
+| Past purchases / order history UI | **Working** | `/orders` uses **`orders/mine.php`** + **`orders/detail.php`**; `gp_last_order_id` cookie still set on checkout success. |
+| Admin orders list + status updates | **Working** | **`/admin/orders`**, **`admin/orders.php`**, **`PATCH admin/order.php`**. |
+| Order document schema (items + status + user linkage) | **Working** | **`place.php`** writes **`userId`**, **`userEmail`**, **`items`** (with **`image`**), **`subtotal`**, **`status`**, **`updatedAt`**. Legacy **`lines`** normalized on read. |
 | JS validation beyond HTML5 | **Partial** | `required` on forms; no extra schema layer. |
 | Product detail help popup | **Not Done** | No dedicated PHP-backed help widget (static UI only if present). |
 | Contact map / live location | **Partial** | Support page uses placeholder / static patterns (no live map API in this pass). |

@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = gp_read_json_body();
-$slug = trim((string) ($data['slug'] ?? ''));
+$slug = trim((string) ($data['cartSlug'] ?? $data['slug'] ?? ''));
 
 if ($slug === '') {
     http_response_code(400);
@@ -21,6 +21,13 @@ if ($slug === '') {
 }
 
 $lines = gp_cart_session_lines();
-$next = array_values(array_filter($lines, static fn ($l) => ($l['slug'] ?? '') !== $slug));
+$next = array_values(array_filter(
+    $lines,
+    static function (array $l) use ($slug): bool {
+        $a = trim((string) ($l['slug'] ?? ''));
+
+        return $a !== $slug && strcasecmp($a, $slug) !== 0;
+    }
+));
 gp_cart_session_save($next);
 echo json_encode(['ok' => true, 'lines' => gp_cart_hydrate()]);

@@ -51,7 +51,8 @@ function gp_cart_hydrate(): array
         if ($qty < 1) {
             continue;
         }
-        $out[] = ['part' => $part, 'quantity' => $qty];
+        // Exact slug key stored in $_SESSION['gp_cart'] — client should send this back for update/remove.
+        $out[] = ['cartSlug' => $line['slug'], 'part' => $part, 'quantity' => $qty];
     }
     return $out;
 }

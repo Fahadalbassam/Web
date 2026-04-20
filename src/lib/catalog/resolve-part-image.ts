@@ -4,10 +4,14 @@
  * Next rewrite prefix `/backend/` so same-origin `next/image` works in dev.
  */
 export function resolvePartImageSrc(image: string | undefined | null): string {
-  const raw = String(image ?? "").trim();
+  let raw = String(image ?? "").trim();
   if (raw === "") return "/placeholder-product.svg";
   if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
   if (raw.startsWith("/backend/uploads/")) return raw;
+  // DB sometimes stores `uploads/...` without a leading slash.
+  if (raw.startsWith("uploads/")) {
+    raw = `/${raw}`;
+  }
   if (raw.startsWith("/uploads/")) return `/backend${raw}`;
   if (raw.startsWith("/")) return raw;
   return `/${raw.replace(/^\/+/, "")}`;

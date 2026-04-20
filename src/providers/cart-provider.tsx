@@ -1,12 +1,15 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 import type { Part } from "@/lib/catalog/part";
 import { phpBrowserUrl } from "@/lib/php-backend";
 
 export type CartLine = {
   part: Part;
   quantity: number;
+  /** Session cart key from PHP (`cart/get.php`) — use for update/remove when present. */
+  cartSlug?: string;
 };
 
 type CartContextValue = {
@@ -14,8 +17,8 @@ type CartContextValue = {
   /** True after first PHP cart sync (session may be empty). */
   hydrated: boolean;
   add: (part: Part, quantity?: number) => Promise<void>;
-  setQuantity: (slug: string, quantity: number) => Promise<void>;
-  remove: (slug: string) => Promise<void>;
+  setQuantity: (cartKey: string, quantity: number) => Promise<void>;
+  remove: (cartKey: string) => Promise<void>;
   clear: () => Promise<void>;
   refresh: () => Promise<void>;
   subtotal: number;
@@ -25,12 +28,16 @@ type CartContextValue = {
 const CartContext = React.createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [lines, setLines] = React.useState<CartLine[]>([]);
   const [hydrated, setHydrated] = React.useState(false);
 
   const refresh = React.useCallback(async () => {
     try {
-      const res = await fetch(phpBrowserUrl("cart/get.php"), { credentials: "include" });
+      const res = await fetch(phpBrowserUrl("cart/get.php"), {
+        credentials: "include",
+        cache: "no-store",
+      });
       if (!res.ok) {
         setLines([]);
         return;
@@ -44,71 +51,99 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Re-fetch when the user navigates (e.g. PDP → /cart) so the UI matches the PHP session without a full reload.
   React.useEffect(() => {
     void refresh();
+  }, [pathname, refresh]);
+
+  // Re-sync session cart after storefront login/register (same PHP session; keeps UI aligned if identity changed).
+  React.useEffect(() => {
+    const onAuthChange = () => void refresh();
+    window.addEventListener("gp-cart-refresh", onAuthChange);
+    return () => window.removeEventListener("gp-cart-refresh", onAuthChange);
   }, [refresh]);
 
-  const add = React.useCallback(async (part: Part, quantity = 1) => {
-    const res = await fetch(phpBrowserUrl("cart/add.php"), {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: part.slug, quantity }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { lines?: CartLine[] };
-      setLines(data.lines ?? []);
-    }
-  }, []);
+  const add = React.useCallback(
+    async (part: Part, quantity = 1) => {
+      try {
+        const res = await fetch(phpBrowserUrl("cart/add.php"), {
+          method: "POST",
+          credentials: "include",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: part.slug, quantity }),
+        });
+        await res.json().catch(() => ({}));
+      } catch {
+        /* network — still refresh to avoid stale badge */
+      } finally {
+        await refresh();
+      }
+    },
+    [refresh]
+  );
 
-  const setQuantity = React.useCallback(async (slug: string, quantity: number) => {
+  const setQuantity = React.useCallback(async (cartKey: string, quantity: number) => {
+    const body = { cartSlug: cartKey, slug: cartKey, quantity };
     if (quantity < 1) {
       const res = await fetch(phpBrowserUrl("cart/remove.php"), {
         method: "POST",
         credentials: "include",
+        cache: "no-store",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug }),
+        body: JSON.stringify({ cartSlug: cartKey, slug: cartKey }),
       });
       if (res.ok) {
         const data = (await res.json()) as { lines?: CartLine[] };
         setLines(data.lines ?? []);
+      } else {
+        await refresh();
       }
       return;
     }
     const res = await fetch(phpBrowserUrl("cart/update.php"), {
       method: "POST",
       credentials: "include",
+      cache: "no-store",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, quantity }),
+      body: JSON.stringify(body),
     });
     if (res.ok) {
       const data = (await res.json()) as { lines?: CartLine[] };
       setLines(data.lines ?? []);
+    } else {
+      await refresh();
     }
-  }, []);
+  }, [refresh]);
 
-  const remove = React.useCallback(async (slug: string) => {
+  const remove = React.useCallback(async (cartKey: string) => {
     const res = await fetch(phpBrowserUrl("cart/remove.php"), {
       method: "POST",
       credentials: "include",
+      cache: "no-store",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug }),
+      body: JSON.stringify({ cartSlug: cartKey, slug: cartKey }),
     });
     if (res.ok) {
       const data = (await res.json()) as { lines?: CartLine[] };
       setLines(data.lines ?? []);
+    } else {
+      await refresh();
     }
-  }, []);
+  }, [refresh]);
 
   const clear = React.useCallback(async () => {
     const res = await fetch(phpBrowserUrl("cart/clear.php"), {
       method: "POST",
       credentials: "include",
+      cache: "no-store",
     });
     if (res.ok) {
       setLines([]);
+    } else {
+      await refresh();
     }
-  }, []);
+  }, [refresh]);
 
   const subtotal = React.useMemo(
     () => lines.reduce((sum, l) => sum + l.part.price * l.quantity, 0),

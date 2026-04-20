@@ -14,12 +14,20 @@ import { useStorefrontAuthModal } from "@/providers/storefront-auth-modal-provid
 import { SarCurrency } from "@/components/site/sar-currency";
 
 export function CheckoutForm() {
-  const { lines, subtotal, clear, refresh } = useCart();
-  const { isLoggedIn, hydrated } = useCustomerAuth();
+  const { lines, subtotal, clear, refresh, hydrated: cartHydrated } = useCart();
+  const { isLoggedIn, hydrated: authHydrated, userEmail } = useCustomerAuth();
   const { openLogin } = useStorefrontAuthModal();
   const [placed, setPlaced] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
+
+  if (!cartHydrated || !authHydrated) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+        <PageIntro title="Checkout" description="Loading your cart and session…" />
+      </div>
+    );
+  }
 
   if (lines.length === 0 && !placed) {
     return (
@@ -28,14 +36,6 @@ export function CheckoutForm() {
         <Button asChild className="mt-8">
           <Link href="/shop">Go to shop</Link>
         </Button>
-      </div>
-    );
-  }
-
-  if (!hydrated) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
-        <PageIntro title="Checkout" description="Loading your session…" />
       </div>
     );
   }
@@ -147,9 +147,14 @@ export function CheckoutForm() {
                   name="email"
                   type="email"
                   required
-                  className="bg-background"
+                  readOnly
+                  className="bg-muted/40"
                   autoComplete="email"
+                  value={userEmail ?? ""}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Must match your signed-in account — the order is stored under this email.
+                </p>
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="phone">Phone</Label>
@@ -191,8 +196,8 @@ export function CheckoutForm() {
           <h2 className="text-sm font-semibold text-foreground">Order summary</h2>
           <Separator className="bg-border" />
           <ul className="space-y-3 text-sm">
-            {lines.map(({ part, quantity }) => (
-              <li key={part.slug} className="flex justify-between gap-4 text-muted-foreground">
+            {lines.map(({ part, quantity, cartSlug }) => (
+              <li key={cartSlug ?? part.slug} className="flex justify-between gap-4 text-muted-foreground">
                 <span className="min-w-0 flex-1 truncate text-foreground">
                   {part.name}{" "}
                   <span className="text-muted-foreground">×{quantity}</span>

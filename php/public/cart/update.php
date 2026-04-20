@@ -12,7 +12,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = gp_read_json_body();
-$slug = trim((string) ($data['slug'] ?? ''));
+// Prefer explicit session key from cart/get.php; fall back to legacy `slug` only.
+$slug = trim((string) ($data['cartSlug'] ?? $data['slug'] ?? ''));
 $qty = (int) ($data['quantity'] ?? 0);
 
 if ($slug === '') {
@@ -21,26 +22,41 @@ if ($slug === '') {
     exit;
 }
 
-$doc = gp_find_product_by_slug($slug, true);
-if ($doc === null) {
-    http_response_code(404);
-    echo json_encode(['error' => 'Not found']);
-    exit;
-}
-$part = gp_part_from_doc($doc);
-$stock = (int) ($part['stockQty'] ?? 0);
-
 $lines = gp_cart_session_lines();
 $next = [];
+$matched = false;
+
 foreach ($lines as $line) {
-    if ($line['slug'] === $slug) {
-        if ($qty < 1) {
-            continue;
-        }
-        $next[] = ['slug' => $slug, 'quantity' => min($stock, $qty)];
-    } else {
+    $lineSlug = $line['slug'];
+    // Case-insensitive match so client/part.slug cannot drift from session keys.
+    $isRow = ($lineSlug === $slug) || (strcasecmp($lineSlug, $slug) === 0);
+    if (!$isRow) {
         $next[] = $line;
+        continue;
     }
+    if ($matched) {
+        $next[] = $line;
+        continue;
+    }
+    $matched = true;
+    if ($qty < 1) {
+        continue;
+    }
+    $doc = gp_find_product_by_slug($lineSlug, true);
+    if ($doc === null) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Not found']);
+        exit;
+    }
+    $part = gp_part_from_doc($doc);
+    $stock = (int) ($part['stockQty'] ?? 0);
+    $next[] = ['slug' => $lineSlug, 'quantity' => min($stock, $qty)];
+}
+
+if (!$matched) {
+    http_response_code(404);
+    echo json_encode(['error' => 'Item not in cart']);
+    exit;
 }
 
 gp_cart_session_save($next);

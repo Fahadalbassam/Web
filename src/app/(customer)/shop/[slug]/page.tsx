@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, ChevronRight } from "lucide-react";
@@ -10,6 +9,7 @@ import {
 } from "@/lib/catalog-fetch";
 import type { Part } from "@/lib/catalog/part";
 import { resolvePartImageSrc } from "@/lib/catalog/resolve-part-image";
+import { CatalogPartImage } from "@/components/site/catalog-part-image";
 import { PageSection } from "@/components/site/page-section";
 import { ProductCard } from "@/components/site/product-card";
 import { Badge } from "@/components/ui/badge";
@@ -83,7 +83,7 @@ export default async function ProductPage({ params }: Props) {
         <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
           <div className="overflow-hidden rounded-2xl border border-border bg-card">
             <div className="relative aspect-[4/3] bg-muted">
-              <Image
+              <CatalogPartImage
                 src={partImage}
                 alt={part.name}
                 fill

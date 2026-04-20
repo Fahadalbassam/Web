@@ -6,7 +6,27 @@
 
 ## Current phase
 
-**Phase 21 — Auth session correctness + admin gate + modal layout (Apr 2026)** — Fixed Mongo JSON **`_id`** handling in PHP (no **`Array to string conversion`**), unified admin redirects with storefront **`/?login=1`**, **`scrollbar-gutter: stable`**, and **`AdminSessionProvider`** refresh when entering **`/admin/*`**.
+**Phase 23 — Checkout + orders finalization (Apr 2026)** — Confirmed single **`orders`** schema (§4b **`DATABASE_AUDIT.md`**), **`place.php`** enforces contact email = session account, cart/checkout wait on **`cart/get.php`** hydration (no false empty state), **`gp-cart-refresh`** after login/register for UI sync, read-only checkout email field.
+
+---
+
+## Phase 23 — Checkout + orders finalization (Apr 2026)
+
+- **What changed (PHP):** **`checkout/place.php`** rejects checkout when JSON **`customer.email`** does not match the signed-in session email (normalized), keeping **`userId`** / **`userEmail`** authoritative.
+- **What changed (Next):** **`CheckoutForm`** waits for both cart and auth hydration before empty/login/checkout UI; checkout **email** is read-only from session with short copy. **`CartView`** shows a loading intro until the first cart sync. **`CartProvider`** listens for **`gp-cart-refresh`**; **`CustomerAuthProvider`** dispatches it after successful login/register.
+- **Decisions:** No second order model — all reads go through **`gp_order_public_array`** / **`gp_order_items_from_doc`**; legacy **`lines`** still normalized to **`items`**.
+- **Files:** `php/public/checkout/place.php`, `src/app/(customer)/checkout/checkout-form.tsx`, `src/app/(customer)/cart/cart-view.tsx`, `src/providers/cart-provider.tsx`, `src/providers/customer-auth-provider.tsx`, `DATABASE_AUDIT.md`, `README.md`, `tracker.md`
+- **Remaining:** No multi-document Mongo transaction for inventory; taxes/shipping fees not modeled.
+
+---
+
+## Phase 22 — Real checkout, orders schema, admin + customer order visibility (Apr 2026)
+
+- **What changed (PHP):** **`gp_storefront_authenticated_user()`** centralizes DB-validated storefront identity (used by **`customer-me.php`** and order reads). Order helpers: **`gp_order_items_from_doc`** ( **`items`** vs legacy **`lines`** ), **`gp_order_public_array`**, **`gp_order_user_can_view`**, status allow-list. **`checkout/place.php`** now writes the finalized order shape and **`pending`** status. New endpoints: **`orders/mine.php`**, **`orders/detail.php`**, **`admin/orders.php`**, **`admin/order.php`** (GET + PATCH status).
+- **What changed (Next):** **`CustomerAuthProvider`** exposes **`userId`**. **`OrdersView`** replaces mock **`/orders`**. **`AdminOrdersPanel`** + **`/admin/orders`** with shadcn **Table** / **Select** / **Dialog**. **`checkout-form`** prefills email; **`cart-view`** shows per-unit price. Admin sidebar adds **Orders**.
+- **Decisions:** One **`orders`** collection; read path normalizes legacy **`lines`**; guest checkout remains blocked at PHP + UI; cart session survives login; ownership checks prevent cross-user detail access.
+- **Files:** `php/include/app.php`, `php/public/auth/customer-me.php`, `php/public/checkout/place.php`, `php/public/orders/mine.php`, `php/public/orders/detail.php`, `php/public/admin/orders.php`, `php/public/admin/order.php`, `src/providers/customer-auth-provider.tsx`, `src/app/(customer)/orders/page.tsx`, `src/app/(customer)/orders/orders-view.tsx`, `src/app/(customer)/checkout/checkout-form.tsx`, `src/app/(customer)/cart/cart-view.tsx`, `src/lib/catalog-fetch.ts`, `src/components/admin/admin-orders-panel.tsx`, `src/app/admin/orders/page.tsx`, `src/components/admin/admin-layout-shell.tsx`, `DATABASE_AUDIT.md`, `README.md`, `php/README.md`, `tracker.md`
+- **Remaining:** No full Mongo transaction for inventory; taxes/shipping fees not modeled; legacy orders without **`userId`** rely on **`userEmail`** / **`customer.email`** matching for “mine” listing.
 
 ---
 
@@ -42,7 +62,7 @@
 - **What changed:** **Unified PHP auth** in `php/include/app.php` (`gp_try_login_credentials`, `gp_commit_login_session`, `gp_find_auth_doc_by_email` / `by_id` for **`users` then `admins`**). **`auth/login.php`**, **`customer-login.php`**, **`register.php`**, **`me.php`**, **`customer-me.php`**, **`logout.php`**, **`customer-logout.php`** rewritten. **Storefront:** `CustomerAuthProvider` exposes **`role`**; **`user-menu`** shows Admin only for **`admin`**. **Removed** `src/lib/catalog/preview-local-inventory.ts` and `storefront-catalog.ts`; **home** + **shop** use only **`fetchPublishedParts`**. **Support:** `php/public/support/ticket.php`, `php/public/admin/support-tickets.php`, **`/admin/support`**, wired **`support-form.tsx`**. **Docs:** `DATABASE_AUDIT.md`, `README.md`, this file.
 - **Files (main):** `php/include/app.php`, `php/public/auth/*.php`, `php/public/support/ticket.php`, `php/public/admin/support-tickets.php`, `src/app/(customer)/page.tsx`, `src/app/(customer)/shop/page.tsx`, `src/app/(customer)/register/page.tsx`, `src/app/(customer)/support/support-form.tsx`, `src/app/admin/support/page.tsx`, `src/components/admin/admin-layout-shell.tsx`, `src/components/admin/admin-support-tickets-panel.tsx`, `src/components/site/user-menu.tsx`, `src/components/site/auth-modal.tsx`, `src/components/site/product-card.tsx`, `src/lib/catalog/part.ts`, `src/lib/catalog-fetch.ts`, `src/providers/customer-auth-provider.tsx`, `DATABASE_AUDIT.md`, `README.md`, `tracker.md`
 - **Decisions:** One session bucket; **`me.php`** is admin-only probe so **`role: user`** cannot open **`/admin/*`**. Preview image synthesis removed per course “database is truth.” Passwords only via **`password_hash` / `password_verify`**.
-- **Remaining:** **`/orders`** UI still not backed by a list API; optional migration of **`admins`** → **`users`** for a single collection.
+- **Remaining:** Optional migration of **`admins`** → **`users`** for a single collection (runtime already checks both). **`/orders`** is backed by **`orders/mine.php`** + **`orders/detail.php`** as of Phase 22+.
 
 ---
 
