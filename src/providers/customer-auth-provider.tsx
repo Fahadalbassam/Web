@@ -3,8 +3,12 @@
 import * as React from "react";
 import { phpBrowserUrl } from "@/lib/php-backend";
 
+export type StorefrontRole = "user" | "admin";
+
 type CustomerAuthContextValue = {
   isLoggedIn: boolean;
+  /** Present after hydration when authenticated. */
+  role: StorefrontRole | null;
   /** Display name for menu (email-based). */
   userLabel: string;
   /** Raw email when signed in (for menu subtitle). */
@@ -12,6 +16,10 @@ type CustomerAuthContextValue = {
   hydrated: boolean;
   refresh: () => Promise<void>;
   loginWithCredentials: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  registerAccount: (
+    email: string,
+    password: string
+  ) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
 };
 
@@ -28,6 +36,7 @@ function labelFromEmail(email: string): string {
 export function CustomerAuthProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = React.useState(false);
   const [email, setEmail] = React.useState<string | null>(null);
+  const [role, setRole] = React.useState<StorefrontRole | null>(null);
 
   const refresh = React.useCallback(async () => {
     try {
@@ -35,18 +44,22 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
         credentials: "include",
         cache: "no-store",
       });
-      if (!res.ok) {
-        setEmail(null);
-        return;
-      }
-      const data = (await res.json()) as { authenticated?: boolean; email?: string };
+      const data = (await res.json()) as {
+        authenticated?: boolean;
+        email?: string;
+        role?: string;
+      };
       if (data.authenticated === true && data.email) {
         setEmail(String(data.email));
+        const r = data.role === "admin" ? "admin" : "user";
+        setRole(r);
       } else {
         setEmail(null);
+        setRole(null);
       }
     } catch {
       setEmail(null);
+      setRole(null);
     } finally {
       setHydrated(true);
     }
@@ -54,6 +67,12 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
 
   React.useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  React.useEffect(() => {
+    const onFocus = () => void refresh();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [refresh]);
 
   const loginWithCredentials = React.useCallback(
@@ -74,6 +93,24 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
     [refresh]
   );
 
+  const registerAccount = React.useCallback(
+    async (rawEmail: string, password: string) => {
+      const res = await fetch(phpBrowserUrl("auth/register.php"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: rawEmail.trim(), password }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        return { ok: false as const, error: body.error ?? "Could not register" };
+      }
+      await refresh();
+      return { ok: true as const };
+    },
+    [refresh]
+  );
+
   const logout = React.useCallback(async () => {
     try {
       await fetch(phpBrowserUrl("auth/customer-logout.php"), {
@@ -84,20 +121,23 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       /* ignore */
     }
     setEmail(null);
+    setRole(null);
     await refresh();
   }, [refresh]);
 
   const value = React.useMemo(
     () => ({
       isLoggedIn: Boolean(email),
+      role,
       userLabel: email ? labelFromEmail(email) : "Guest",
       userEmail: email,
       hydrated,
       refresh,
       loginWithCredentials,
+      registerAccount,
       logout,
     }),
-    [email, hydrated, refresh, loginWithCredentials, logout]
+    [email, role, hydrated, refresh, loginWithCredentials, registerAccount, logout]
   );
 
   return <CustomerAuthContext.Provider value={value}>{children}</CustomerAuthContext.Provider>;

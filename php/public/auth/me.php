@@ -1,8 +1,7 @@
 <?php
 /**
- * GET — { authenticated, email? } for AdminSessionProvider + Next middleware.
- * Validates MongoDB admin document + role (not session keys alone).
- * Always HTTP 200 with JSON body (no 401) so clients treat “guest” as a normal state.
+ * GET — admin session probe for middleware + AdminSessionProvider.
+ * Authenticated only when DB role is admin (unified gp_user_* or legacy admin_* session).
  */
 declare(strict_types=1);
 
@@ -11,33 +10,37 @@ require_once dirname(__DIR__, 2) . '/include/app.php';
 gp_json_headers();
 gp_session_start();
 
-if (empty($_SESSION['admin_id']) || empty($_SESSION['admin_email'])) {
+$id = (string) ($_SESSION['gp_user_id'] ?? $_SESSION['admin_id'] ?? '');
+$sessEmail = strtolower(trim((string) ($_SESSION['gp_user_email'] ?? $_SESSION['admin_email'] ?? '')));
+
+if ($id === '' || $sessEmail === '') {
     echo json_encode(['authenticated' => false]);
     exit;
 }
 
-$doc = gp_find_admin_by_id_string((string) $_SESSION['admin_id']);
-$sessionEmail = strtolower(trim((string) $_SESSION['admin_email']));
-
+$doc = gp_find_auth_doc_by_id($id);
 if ($doc === null) {
-    unset($_SESSION['admin_id'], $_SESSION['admin_email']);
+    gp_clear_auth_identity_keys();
     echo json_encode(['authenticated' => false]);
     exit;
 }
 
 $dbEmail = strtolower(trim((string) ($doc['email'] ?? '')));
 
-if (
-    (string) ($doc['role'] ?? '') !== 'admin'
-    || $dbEmail === ''
-    || $dbEmail !== $sessionEmail
-) {
-    unset($_SESSION['admin_id'], $_SESSION['admin_email']);
+if ($dbEmail === '' || $dbEmail !== $sessEmail) {
+    gp_clear_auth_identity_keys();
+    echo json_encode(['authenticated' => false]);
+    exit;
+}
+
+if ((string) ($doc['role'] ?? '') !== 'admin') {
+    // Signed-in customer — not staff; do not destroy their storefront session.
     echo json_encode(['authenticated' => false]);
     exit;
 }
 
 echo json_encode([
     'authenticated' => true,
-    'email' => (string) $_SESSION['admin_email'],
+    'email' => $sessEmail,
+    'role' => 'admin',
 ]);

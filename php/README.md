@@ -9,15 +9,29 @@ cd php
 composer install
 ```
 
-Ensure `MONGODB_URI` is available to the PHP process (same connection string as Next uses in `.env.local`). On Windows PowerShell:
+### Environment variables (local dev)
+
+**Next.js** loads **`.env.local`** from the **repo root** automatically. **PHP does not** — the built-in server only sees the process environment unless you export variables in the shell.
+
+This project loads the same files at PHP startup (see **`include/load-env.php`**, called from **`include/app.php`** after Composer autoload):
+
+1. **`.env`** in the **repository root** (parent of the `php/` folder), if present.
+2. **`.env.local`** in the same place, if present (overrides **`.env`** for local-only secrets).
+
+Values are applied with **vlucas/phpdotenv** (`createUnsafeMutable` + `putenv`) so **`getenv('MONGODB_URI')`** and **`$_ENV`** match what you use in **`.env.local`**. You do **not** need to `set` / `export` `MONGODB_URI` in PowerShell for `npm run dev:full` as long as the file exists and is readable.
+
+In **production**, configure the real web server or process manager to set `MONGODB_URI` (and optional `GP_COOKIE_SECURE`, `NODE_ENV`); the dotenv files are optional if the host already injects the environment.
+
+### Run the built-in server
+
+From repo root: `npm run php:server` (uses **`C:\xampp\php\php.exe`** on Windows so PATH is not required; change `package.json` if your PHP lives elsewhere). Or manually:
 
 ```powershell
-$env:MONGODB_URI="mongodb+srv://..."
 cd C:\Projects\web\php
 php -S 127.0.0.1:8080 -t public
 ```
 
-Or from repo root: `npm run php:server` (uses **`C:\xampp\php\php.exe`** on Windows so PATH is not required; change `package.json` if your PHP lives elsewhere). Run **`npm run dev:full`** to start Next + PHP together via `concurrently`.
+Run **`npm run dev:full`** to start Next + PHP together via `concurrently`.
 
 ## Next.js integration
 
@@ -31,12 +45,13 @@ Set in `.env.local`:
 
 | Area | Script | Methods |
 |------|--------|---------|
-| Auth (admin panel) | `auth/login.php` | POST JSON — sets `admin_*` + checkout identity |
-| Auth (admin panel) | `auth/logout.php` | POST — clears admin + checkout identity; keeps cart |
-| Auth (admin panel) | `auth/me.php` | GET — 200 JSON `{ authenticated, email? }` (Mongo-validated) |
-| Auth (storefront checkout) | `auth/customer-login.php` | POST JSON — checkout identity only (same `admins` verify, no `admin_id`) |
-| Auth (storefront) | `auth/customer-me.php` | GET |
-| Auth (storefront) | `auth/customer-logout.php` | POST |
+| Auth (unified login) | `auth/login.php`, `auth/customer-login.php` | POST JSON — same logic; sets `gp_user_*`, checkout mirrors, **`admin_*` if role admin |
+| Auth (register) | `auth/register.php` | POST JSON — creates **`users`** row (`password_hash`), signs in |
+| Auth | `auth/logout.php`, `auth/customer-logout.php` | POST — clear identity keys; **keeps** `gp_cart` |
+| Auth (admin probe) | `auth/me.php` | GET — **`authenticated` true only for Mongo `role: admin`** (middleware) |
+| Auth (storefront) | `auth/customer-me.php` | GET — `{ authenticated, email?, role? }` |
+| Support | `support/ticket.php` | POST JSON — public ticket create → **`supportTickets`** |
+| Admin | `admin/support-tickets.php` | GET `?q=`, PATCH JSON `{ id, status }` |
 | Catalog | `catalog/products.php` | GET |
 | Catalog | `catalog/product.php` | GET |
 | Catalog | `catalog/related.php` | GET |
@@ -48,4 +63,4 @@ Set in `.env.local`:
 | Cart | `cart/add.php`, `update.php`, `remove.php`, `clear.php` | POST JSON |
 | Checkout | `checkout/place.php` | POST JSON — **requires** storefront checkout session (see `gp_require_checkout_customer` in `app.php`) |
 
-Shared code: `php/include/app.php`, `php/include/cart.php`.
+Shared code: `php/include/app.php`, `php/include/cart.php`, `php/include/load-env.php`.

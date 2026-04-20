@@ -18,11 +18,6 @@ export type Part = {
   stockQty?: number;
   /** Present when loaded from admin/catalog persistence. */
   published?: boolean;
-  /**
-   * Milestone-only rows synthesized from `public/images/` (not in MongoDB).
-   * Storefront cards link to `/shop` instead of PDP so PHP catalog stays authoritative.
-   */
-  isPreviewCatalog?: boolean;
 };
 
 export function stockStatusFromQty(qty: number): StockStatus {

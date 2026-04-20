@@ -1,6 +1,6 @@
 <?php
 /**
- * Destroys admin session context (same session bucket as cart; only admin keys cleared when present).
+ * POST — clears all auth identity keys (storefront + admin). Cart lines remain until cleared at checkout.
  */
 declare(strict_types=1);
 
@@ -15,13 +15,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 }
 
 gp_session_start();
-
-unset(
-    $_SESSION['admin_id'],
-    $_SESSION['admin_email'],
-    $_SESSION['gp_checkout_customer_id'],
-    $_SESSION['gp_checkout_customer_email']
-);
+gp_clear_auth_identity_keys();
 session_regenerate_id(true);
 
 echo json_encode(['ok' => true]);

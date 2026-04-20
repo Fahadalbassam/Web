@@ -1,6 +1,7 @@
 <?php
 /**
- * POST JSON { "email", "password" } — sets PHP session (admin_id, admin_email). No Node/JWT.
+ * POST JSON { "email", "password" } — unified login (users + legacy admins).
+ * Sets gp_user_* session keys; admins also get legacy admin_* for compatibility.
  */
 declare(strict_types=1);
 
@@ -14,47 +15,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-gp_session_start();
 $data = gp_read_json_body();
-$email = isset($data['email']) ? strtolower(trim((string) $data['email'])) : '';
+$email = isset($data['email']) ? (string) $data['email'] : '';
 $password = isset($data['password']) ? (string) $data['password'] : '';
 
-if ($email === '' || $password === '') {
-    http_response_code(401);
-    echo json_encode(['error' => 'Invalid credentials']);
+$r = gp_try_login_credentials($email, $password);
+if (!$r['ok']) {
+    http_response_code($r['code']);
+    echo json_encode(['error' => $r['error']]);
     exit;
 }
 
-$col = gp_mongo_database()->selectCollection('admins');
-$admin = $col->findOne(['email' => $email]);
-if ($admin === null) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Invalid credentials']);
-    exit;
-}
-$admin = gp_normalize_doc($admin);
-if ((string) ($admin['role'] ?? '') !== 'admin') {
-    http_response_code(403);
-    echo json_encode(['error' => 'Forbidden']);
-    exit;
-}
-$hash = (string) ($admin['passwordHash'] ?? '');
-if ($hash === '' || !password_verify($password, $hash)) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Invalid credentials']);
-    exit;
-}
-
-$aid = gp_oid_string($admin);
-if ($aid === null) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Server error']);
-    exit;
-}
-
-session_regenerate_id(true);
-$_SESSION['admin_id'] = $aid;
-$_SESSION['admin_email'] = $email;
-gp_set_checkout_customer_session($aid, $email);
+gp_commit_login_session($r['id'], $r['email'], $r['role']);
 
 echo json_encode(['ok' => true]);

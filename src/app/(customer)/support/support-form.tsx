@@ -7,13 +7,46 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { phpBrowserUrl } from "@/lib/php-backend";
+import { useCustomerAuth } from "@/providers/customer-auth-provider";
 
 export function SupportPageContent() {
+  const { userEmail, hydrated } = useCustomerAuth();
   const [sent, setSent] = React.useState(false);
+  const [pending, setPending] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSent(true);
+    setError(null);
+    setPending(true);
+    const fd = new FormData(e.currentTarget);
+    const body = {
+      name: String(fd.get("name") ?? "").trim(),
+      email: String(fd.get("email") ?? "").trim(),
+      subject: String(fd.get("subject") ?? "").trim(),
+      message: String(fd.get("message") ?? "").trim(),
+    };
+
+    try {
+      const res = await fetch(phpBrowserUrl("support/ticket.php"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setError(data.error ?? "Could not send message");
+        setPending(false);
+        return;
+      }
+      setSent(true);
+    } catch {
+      setError("Could not reach support. Try again later.");
+    } finally {
+      setPending(false);
+    }
   };
 
   return (
@@ -22,7 +55,7 @@ export function SupportPageContent() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <PageIntro
             title="Support"
-            description="Reach the beta team for fitment checks, warranty questions, or account help. This form is UI-only."
+            description="Reach the team for fitment checks, warranty questions, or account help. Messages are stored securely and reviewed in admin."
           />
         </div>
       </PageSection>
@@ -32,35 +65,55 @@ export function SupportPageContent() {
           <div className="rounded-xl border border-border bg-card p-6 text-card-foreground md:p-8">
             {sent ? (
               <p className="text-sm text-muted-foreground">
-                Thanks — your message is captured locally for this demo. We will wire delivery later.
+                Thanks — your message was submitted. We will get back to you at the email you provided.
               </p>
             ) : (
-              <form onSubmit={onSubmit} className="space-y-4">
+              <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="support-name">Full name</Label>
-                    <Input id="support-name" required className="bg-background" autoComplete="name" />
+                    <Input
+                      id="support-name"
+                      name="name"
+                      required
+                      className="bg-background"
+                      autoComplete="name"
+                      disabled={pending}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="support-email">Email</Label>
                     <Input
                       id="support-email"
+                      name="email"
                       type="email"
                       required
                       className="bg-background"
                       autoComplete="email"
+                      defaultValue={hydrated && userEmail ? userEmail : undefined}
+                      disabled={pending}
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="support-subject">Subject</Label>
-                  <Input id="support-subject" required className="bg-background" />
+                  <Input id="support-subject" name="subject" required className="bg-background" disabled={pending} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="support-message">Message</Label>
-                  <Textarea id="support-message" required rows={5} className="bg-background" />
+                  <Textarea
+                    id="support-message"
+                    name="message"
+                    required
+                    rows={5}
+                    className="bg-background"
+                    disabled={pending}
+                  />
                 </div>
-                <Button type="submit">Send message</Button>
+                {error ? <p className="text-sm text-destructive">{error}</p> : null}
+                <Button type="submit" disabled={pending}>
+                  {pending ? "Sending…" : "Send message"}
+                </Button>
               </form>
             )}
           </div>

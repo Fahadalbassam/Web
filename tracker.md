@@ -6,11 +6,36 @@
 
 ## Current phase
 
-**Phase 17 — Milestone preview catalog (local images)** — server-scanned `public/images/` category folders merged with PHP/MongoDB listings for screenshot-ready cards without replacing the real pipeline.
+**Phase 20 — PHP loads repo `.env.local` (Apr 2026)** — **`vlucas/phpdotenv`** + **`php/include/load-env.php`** so **`MONGODB_URI`** is available to **`php -S`** without shell exports; **`npm run dev:full`** stable.
 
 ---
 
-## Phase 17 — Preview products from `public/images/` (Apr 2026)
+## Phase 20 — PHP env parity with Next `.env.local` (Apr 2026)
+
+- **What changed:** Added **`vlucas/phpdotenv`** (`php/composer.json`). **`php/include/load-env.php`** runs **`gp_load_repo_env()`** from **`app.php`** (after Composer autoload): reads repo-root **`.env`** then **`.env.local`** with **`Dotenv::createUnsafeMutable`** + **`safeLoad()`** so **`getenv()`** / **`gp_require_env('MONGODB_URI')`** work under the PHP built-in server. Documented in **`php/README.md`** and root **`README.md`**.
+- **Files:** `php/composer.json`, `php/composer.lock`, `php/include/load-env.php`, `php/include/app.php`, `php/README.md`, `README.md`, `tracker.md`
+- **Decisions:** Load order matches typical Next precedence (`.env.local` overrides `.env`); production can rely on real env vars only.
+
+---
+
+## Phase 19 — Unified login/register popup UX (Apr 2026)
+
+- **What changed:** **`auth-modal.tsx`** supports **`login` \| `register`** modes in the same shadcn **Dialog** (no navigation to **`/register`** from the modal). Underlined text-only switches: “New? Register here” ↔ “Already have an account? Login here”. Register adds **confirm password** with client-side match check; **`registerAccount`** / **`loginWithCredentials`** unchanged. Email preserved when switching modes; passwords cleared. **`onLoginSuccess`** still runs after either success (checkout **`openLogin(returnTo)`** preserved).
+- **Files:** `src/components/site/auth-modal.tsx`, `README.md`, `tracker.md`
+- **Decisions:** Default mode **login** on open; compact single-column forms; secondary **`/register`** page left in place for direct URLs only.
+
+---
+
+## Phase 18 — DB-only catalog + accounts + support (Apr 2026)
+
+- **What changed:** **Unified PHP auth** in `php/include/app.php` (`gp_try_login_credentials`, `gp_commit_login_session`, `gp_find_auth_doc_by_email` / `by_id` for **`users` then `admins`**). **`auth/login.php`**, **`customer-login.php`**, **`register.php`**, **`me.php`**, **`customer-me.php`**, **`logout.php`**, **`customer-logout.php`** rewritten. **Storefront:** `CustomerAuthProvider` exposes **`role`**; **`user-menu`** shows Admin only for **`admin`**. **Removed** `src/lib/catalog/preview-local-inventory.ts` and `storefront-catalog.ts`; **home** + **shop** use only **`fetchPublishedParts`**. **Support:** `php/public/support/ticket.php`, `php/public/admin/support-tickets.php`, **`/admin/support`**, wired **`support-form.tsx`**. **Docs:** `DATABASE_AUDIT.md`, `README.md`, this file.
+- **Files (main):** `php/include/app.php`, `php/public/auth/*.php`, `php/public/support/ticket.php`, `php/public/admin/support-tickets.php`, `src/app/(customer)/page.tsx`, `src/app/(customer)/shop/page.tsx`, `src/app/(customer)/register/page.tsx`, `src/app/(customer)/support/support-form.tsx`, `src/app/admin/support/page.tsx`, `src/components/admin/admin-layout-shell.tsx`, `src/components/admin/admin-support-tickets-panel.tsx`, `src/components/site/user-menu.tsx`, `src/components/site/auth-modal.tsx`, `src/components/site/product-card.tsx`, `src/lib/catalog/part.ts`, `src/lib/catalog-fetch.ts`, `src/providers/customer-auth-provider.tsx`, `DATABASE_AUDIT.md`, `README.md`, `tracker.md`
+- **Decisions:** One session bucket; **`me.php`** is admin-only probe so **`role: user`** cannot open **`/admin/*`**. Preview image synthesis removed per course “database is truth.” Passwords only via **`password_hash` / `password_verify`**.
+- **Remaining:** **`/orders`** UI still not backed by a list API; optional migration of **`admins`** → **`users`** for a single collection.
+
+---
+
+## Phase 17 — Preview products from `public/images/` (Apr 2026) — superseded / removed
 
 - **What changed:** Added **`getPreviewPartsFromLocalImages()`** (`src/lib/catalog/preview-local-inventory.ts`, `server-only`) — reads **`Brake Pads`**, **`Air Filters`**, **`Batteries`**, **`Radiators`** under **`public/images/`** (case-insensitive match), skips **`brandlogos`**, builds **`Part`** rows from each image file (encoded **`/images/...`** paths, deterministic SAR-range pricing, **`stockQty`** + **`stockStatus`**, one-line descriptions, unique **`slug`** / **`id`**). **`mergePartsForHomeRow`** / **`mergePartsForShopCatalog`** (`src/lib/catalog/storefront-catalog.ts`): home **Latest arrivals** = up to **4** cards, **real API rows first** then previews to fill; shop uses **real-only** when **`published` count ≥ 8**, otherwise **pads** with non-colliding preview rows. **`Part.isPreviewCatalog`** + **`ProductCard`**: preview cards use **`object-contain`** thumbs, **`Details` → `/shop`** (no PDP 404). Home empty copy mentions preview image folders if both sources are empty.
 - **Files:** `src/lib/catalog/preview-local-inventory.ts`, `src/lib/catalog/storefront-catalog.ts`, `src/lib/catalog/part.ts`, `src/components/site/product-card.tsx`, `src/app/(customer)/page.tsx`, `src/app/(customer)/shop/page.tsx`, `README.md`, `tracker.md`

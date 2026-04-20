@@ -65,3 +65,27 @@ export async function fetchProductByIdAdmin(id: string): Promise<Part | null> {
     return null;
   }
 }
+
+export type SupportTicketRow = {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  status: string;
+  userId: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export async function fetchSupportTicketsAdmin(q?: string): Promise<SupportTicketRow[]> {
+  const qs = q != null && q.trim() !== "" ? `?q=${encodeURIComponent(q.trim())}` : "";
+  try {
+    const res = await phpServerFetch(`/admin/support-tickets.php${qs}`);
+    if (!res.ok) return [];
+    const data = (await res.json()) as { tickets?: SupportTicketRow[] };
+    return data.tickets ?? [];
+  } catch {
+    return [];
+  }
+}

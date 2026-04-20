@@ -10,24 +10,18 @@ import { Button } from "@/components/ui/button";
 import { heroSlides } from "@/lib/mock/hero-slides";
 import { fetchPublishedParts } from "@/lib/catalog-fetch";
 import { getBrandLogoPublicPaths } from "@/lib/brand-logos-server";
-import {
-  getLocalPreviewCatalogParts,
-  mergePartsForHomeRow,
-} from "@/lib/catalog/storefront-catalog";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const brandLogos = getBrandLogoPublicPaths();
 
-  let real = [] as Awaited<ReturnType<typeof fetchPublishedParts>>;
+  let featured = [] as Awaited<ReturnType<typeof fetchPublishedParts>>;
   try {
-    real = await fetchPublishedParts(4);
+    featured = await fetchPublishedParts(4);
   } catch {
-    real = [];
+    featured = [];
   }
-  const preview = getLocalPreviewCatalogParts();
-  const featured = mergePartsForHomeRow(real, preview, 4);
 
   return (
     <div>
@@ -70,8 +64,7 @@ export default async function HomePage() {
               <div className="col-span-full flex min-h-[200px] flex-col justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
                 <p className="text-sm font-medium text-foreground">No parts to show yet</p>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Publish parts in the admin catalog, or add preview images under{" "}
-                  <span className="font-mono text-foreground">public/images/</span>.
+                  Publish products from the admin catalog — they will appear here automatically when published.
                 </p>
               </div>
             ) : (

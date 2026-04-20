@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, LogOut, Package, Plus, Store } from "lucide-react";
+import { LayoutDashboard, LogOut, MessageSquare, Package, Plus, Store } from "lucide-react";
 import { ThemeToggle } from "@/components/site/theme-toggle";
 import {
   AlertDialog,
@@ -75,6 +75,7 @@ function AdminSidebarNav() {
   const [logoutOpen, setLogoutOpen] = React.useState(false);
 
   const dashboardActive = pathname === "/admin/dashboard";
+  const supportActive = pathname === "/admin/support";
   const addProductActive = pathname === "/admin/products/new";
   const productsActive =
     pathname === "/admin/products" ||
@@ -101,6 +102,14 @@ function AdminSidebarNav() {
                     <Link href="/admin/dashboard">
                       <LayoutDashboard />
                       <span>Dashboard</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={supportActive}>
+                    <Link href="/admin/support">
+                      <MessageSquare />
+                      <span>Support tickets</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

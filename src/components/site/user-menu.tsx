@@ -13,13 +13,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useCustomerAuth } from "@/providers/customer-auth-provider";
-import { useAdminSession } from "@/providers/admin-session-provider";
 
 export function UserMenu() {
-  const { userLabel, userEmail, logout } = useCustomerAuth();
-  const { isAdminAuthenticated, hydrated } = useAdminSession();
-  const adminHref =
-    hydrated && isAdminAuthenticated ? "/admin/dashboard" : "/admin/login";
+  const { userLabel, userEmail, role, logout } = useCustomerAuth();
+  const showAdmin = role === "admin";
   const initialsSource = userEmail ?? userLabel;
   const initials = initialsSource
     .replace(/[^a-zA-Z0-9@._-]+/g, " ")
@@ -69,12 +66,14 @@ export function UserMenu() {
             Settings
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <Link href={adminHref} className="flex items-center gap-2">
-            <LayoutDashboard className="size-4" />
-            Admin panel
-          </Link>
-        </DropdownMenuItem>
+        {showAdmin ? (
+          <DropdownMenuItem asChild className="cursor-pointer">
+            <Link href="/admin/dashboard" className="flex items-center gap-2">
+              <LayoutDashboard className="size-4" />
+              Admin panel
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuSeparator className="bg-border" />
         <DropdownMenuItem
           className="cursor-pointer text-destructive focus:text-destructive"

@@ -1,6 +1,6 @@
 <?php
 /**
- * POST — clears storefront checkout identity only (cart + admin session unchanged).
+ * POST — same as auth/logout.php (single session bucket; alias for storefront callers).
  */
 declare(strict_types=1);
 
@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 gp_session_start();
-unset($_SESSION['gp_checkout_customer_id'], $_SESSION['gp_checkout_customer_email']);
+gp_clear_auth_identity_keys();
 session_regenerate_id(true);
 
 echo json_encode(['ok' => true]);

@@ -19,6 +19,9 @@ require_once $composer;
 use MongoDB\Client;
 use MongoDB\BSON\ObjectId;
 
+require_once __DIR__ . '/load-env.php';
+gp_load_repo_env();
+
 function gp_require_env(string $key): string
 {
     $v = getenv($key);
@@ -94,6 +97,15 @@ function gp_normalize_doc($doc): array
     } catch (\Throwable $e) {
         return [];
     }
+}
+
+/** @param mixed $v */
+function gp_iso_datetime($v): ?string
+{
+    if ($v instanceof \MongoDB\BSON\UTCDateTime) {
+        return $v->toDateTime()->format(\DateTimeInterface::ATOM);
+    }
+    return null;
 }
 
 /** @param array<string,mixed> $doc */
@@ -180,31 +192,151 @@ function gp_find_product_by_id(string $id): ?array
     return $doc !== null ? gp_normalize_doc($doc) : null;
 }
 
-/** @return array<string,mixed>|null */
-function gp_find_admin_by_id_string(string $id): ?array
+/**
+ * Unified auth documents live in `users`; legacy staff rows may still exist only in `admins`.
+ *
+ * @return array<string,mixed>|null
+ */
+function gp_find_auth_doc_by_id(string $id): ?array
 {
     try {
         $oid = new ObjectId($id);
     } catch (\Throwable $e) {
         return null;
     }
-    $col = gp_mongo_database()->selectCollection('admins');
-    $doc = $col->findOne(['_id' => $oid]);
+    $db = gp_mongo_database();
+    $users = $db->selectCollection('users');
+    $doc = $users->findOne(['_id' => $oid]);
+    if ($doc !== null) {
+        return gp_normalize_doc($doc);
+    }
+    $admins = $db->selectCollection('admins');
+    $doc = $admins->findOne(['_id' => $oid]);
     return $doc !== null ? gp_normalize_doc($doc) : null;
+}
+
+/**
+ * Lookup by normalized email — `users` first, then legacy `admins`.
+ *
+ * @return array<string,mixed>|null
+ */
+function gp_find_auth_doc_by_email(string $email): ?array
+{
+    $email = strtolower(trim($email));
+    if ($email === '') {
+        return null;
+    }
+    $db = gp_mongo_database();
+    $users = $db->selectCollection('users');
+    $doc = $users->findOne(['email' => $email]);
+    if ($doc !== null) {
+        return gp_normalize_doc($doc);
+    }
+    $admins = $db->selectCollection('admins');
+    $doc = $admins->findOne(['email' => $email]);
+    return $doc !== null ? gp_normalize_doc($doc) : null;
+}
+
+/** @deprecated Use gp_find_auth_doc_by_id — kept for clarity in older comments */
+function gp_find_admin_by_id_string(string $id): ?array
+{
+    return gp_find_auth_doc_by_id($id);
+}
+
+/** Clears unified session keys (cart lines are untouched). */
+function gp_clear_auth_identity_keys(): void
+{
+    unset(
+        $_SESSION['gp_user_id'],
+        $_SESSION['gp_user_email'],
+        $_SESSION['gp_user_role'],
+        $_SESSION['admin_id'],
+        $_SESSION['admin_email'],
+        $_SESSION['gp_checkout_customer_id'],
+        $_SESSION['gp_checkout_customer_email']
+    );
+}
+
+/**
+ * After successful password check: one session bucket for storefront + admin role gating.
+ *
+ * @param 'user'|'admin' $role
+ */
+function gp_commit_login_session(string $id, string $email, string $role): void
+{
+    gp_session_start();
+    session_regenerate_id(true);
+    $email = strtolower(trim($email));
+    $_SESSION['gp_user_id'] = $id;
+    $_SESSION['gp_user_email'] = $email;
+    $_SESSION['gp_user_role'] = $role;
+    $_SESSION['gp_checkout_customer_id'] = $id;
+    $_SESSION['gp_checkout_customer_email'] = $email;
+    if ($role === 'admin') {
+        $_SESSION['admin_id'] = $id;
+        $_SESSION['admin_email'] = $email;
+    } else {
+        unset($_SESSION['admin_id'], $_SESSION['admin_email']);
+    }
+}
+
+/**
+ * @return array{ok:true,id:string,email:string,role:string}|array{ok:false,code:int,error:string}
+ */
+function gp_try_login_credentials(string $email, string $password): array
+{
+    $email = strtolower(trim($email));
+    if ($email === '' || $password === '') {
+        return ['ok' => false, 'code' => 401, 'error' => 'Invalid credentials'];
+    }
+    $doc = gp_find_auth_doc_by_email($email);
+    if ($doc === null) {
+        return ['ok' => false, 'code' => 401, 'error' => 'Invalid credentials'];
+    }
+    $hash = (string) ($doc['passwordHash'] ?? '');
+    if ($hash === '' || !password_verify($password, $hash)) {
+        return ['ok' => false, 'code' => 401, 'error' => 'Invalid credentials'];
+    }
+    $role = (string) ($doc['role'] ?? 'user');
+    if ($role !== 'admin' && $role !== 'user') {
+        $role = 'user';
+    }
+    $id = gp_oid_string($doc);
+    if ($id === null) {
+        return ['ok' => false, 'code' => 500, 'error' => 'Server error'];
+    }
+
+    return ['ok' => true, 'id' => $id, 'email' => $email, 'role' => $role];
 }
 
 function gp_require_admin(): void
 {
     gp_session_start();
-    if (empty($_SESSION['admin_id'])) {
+    $id = (string) ($_SESSION['gp_user_id'] ?? $_SESSION['admin_id'] ?? '');
+    $sessEmail = strtolower(trim((string) ($_SESSION['gp_user_email'] ?? $_SESSION['admin_email'] ?? '')));
+    if ($id === '' || $sessEmail === '') {
         http_response_code(401);
         gp_json_headers();
         echo json_encode(['error' => 'Unauthorized']);
         exit;
     }
-    $doc = gp_find_admin_by_id_string((string) $_SESSION['admin_id']);
-    if ($doc === null || (string) ($doc['role'] ?? '') !== 'admin') {
-        unset($_SESSION['admin_id'], $_SESSION['admin_email']);
+    $doc = gp_find_auth_doc_by_id($id);
+    if ($doc === null) {
+        gp_clear_auth_identity_keys();
+        http_response_code(401);
+        gp_json_headers();
+        echo json_encode(['error' => 'Unauthorized']);
+        exit;
+    }
+    $dbEmail = strtolower(trim((string) ($doc['email'] ?? '')));
+    if ($dbEmail === '' || $dbEmail !== $sessEmail) {
+        gp_clear_auth_identity_keys();
+        http_response_code(401);
+        gp_json_headers();
+        echo json_encode(['error' => 'Unauthorized']);
+        exit;
+    }
+    if ((string) ($doc['role'] ?? '') !== 'admin') {
         http_response_code(403);
         gp_json_headers();
         echo json_encode(['error' => 'Forbidden']);
@@ -212,7 +344,7 @@ function gp_require_admin(): void
     }
 }
 
-/** Storefront checkout identity (separate from admin panel session keys). */
+/** Storefront checkout identity (legacy helper — prefer gp_commit_login_session). */
 function gp_set_checkout_customer_session(string $id, string $email): void
 {
     gp_session_start();
@@ -223,7 +355,9 @@ function gp_set_checkout_customer_session(string $id, string $email): void
 function gp_require_checkout_customer(): void
 {
     gp_session_start();
-    if (empty($_SESSION['gp_checkout_customer_id']) || empty($_SESSION['gp_checkout_customer_email'])) {
+    $id = (string) ($_SESSION['gp_checkout_customer_id'] ?? $_SESSION['gp_user_id'] ?? '');
+    $em = (string) ($_SESSION['gp_checkout_customer_email'] ?? $_SESSION['gp_user_email'] ?? '');
+    if ($id === '' || $em === '') {
         http_response_code(401);
         gp_json_headers();
         echo json_encode(['error' => 'Sign in required to place an order']);

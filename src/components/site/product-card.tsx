@@ -37,8 +37,7 @@ export function ProductCard({
   className?: string;
 }) {
   const img = resolvePartImageSrc(part.image);
-  const detailHref = part.isPreviewCatalog ? "/shop" : `/shop/${part.slug}`;
-  const imageFitPreview = part.isPreviewCatalog === true;
+  const detailHref = `/shop/${part.slug}`;
 
   return (
     <Card
@@ -54,10 +53,7 @@ export function ProductCard({
               src={img}
               alt={part.name}
               fill
-              className={cn(
-                "transition-transform duration-300 group-hover:scale-[1.02]",
-                imageFitPreview ? "object-contain object-center p-3" : "object-cover"
-              )}
+              className="transition-transform duration-300 group-hover:scale-[1.02] object-cover"
               sizes="(max-width:768px) 100vw, 33vw"
             />
           </div>
