@@ -57,3 +57,5 @@ preview of admin pov:
 <img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/443e64d2-0beb-450f-bc86-d6e7debec027" />
 <img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/55620b2a-44c1-4328-a867-1f947aef9ae1" />
 
+ER diagram: 
+<img width="1600" height="1499" alt="image" src="https://github.com/user-attachments/assets/4564803b-7357-428e-a5c0-d337469b8f4f" />
