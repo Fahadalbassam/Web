@@ -1,53 +1,41 @@
-# CarPart / Gulf Parts Co (web)
+# Gulf Parts Co / CarPart (web)
 
-This is a CarPart Project.
+School project for a fake car parts shop. Customers browse parts, cart, checkout, and admins manage products/orders. Nothing fancy on purpose — we just needed it to work end to end.
 
-## Fahad — Frontend / backend integration (handoff)
+## What we actually used
 
-**Gulf Parts Co** is a car-parts storefront and admin console: **Next.js 16 (App Router) + TypeScript + Tailwind v4 + shadcn/ui** for UI, **PHP 8.x + Composer `mongodb/mongodb`** as the **only** live backend for auth, cart, catalog API, admin CRUD, and checkout, backed by **MongoDB**.
+- **Next.js** (App Router) + **TypeScript** + **Tailwind** for the storefront and admin UI. We pulled in **shadcn/ui** bits for tables, dialogs, forms, that kind of thing.
+- **PHP** for the real backend: login, register, cart, catalog from Mongo, admin CRUD, checkout → orders. Sessions are PHP sessions, passwords use PHP’s `password_hash` / `password_verify`.
+- **MongoDB** for all the data (users, products, orders, etc.).
+- **Composer** in the `php/` folder for the MongoDB PHP driver and dotenv.
 
-### Integration summary
+The frontend talks to PHP through **`/backend/...`**. Next rewrites those URLs to whatever is in **`PHP_BACKEND_URL`** (see `next.config.ts`), usually `http://127.0.0.1:8080`, so the browser stays on the Next origin and cookies still work.
 
-- **PHP-first wiring is in place:** the browser calls **`/backend/*`** (rewritten in `next.config.ts` to `PHP_BACKEND_URL`). Server Components use **`src/lib/php-server-fetch.ts`** and **`src/lib/catalog-fetch.ts`** for catalog and admin reads. **No Next Route Handlers** act as authority for those domains.
-- **shadcn admin + storefront UI is preserved:** the approved **Sidebar**, **Data Table** (`@tanstack/react-table` + `Table`), forms, dialogs, pagination, and cards are unchanged in layout; only data targets and guards were wired to PHP.
-- **Local development:** run **`npm run dev:full`** to start **Next** and the **PHP built-in server** together. `npm run php:server` uses **`C:\xampp\php\php.exe`** explicitly (see `package.json`) so Windows PATH does not need `php`. Put **`MONGODB_URI`** and **`PHP_BACKEND_URL=http://127.0.0.1:8080`** in **`.env.local`** at the **repo root** (same file Next uses). **PHP** loads **`.env`** then **`.env.local`** from that root via **`php/include/load-env.php`** + **vlucas/phpdotenv** so the backend sees **`MONGODB_URI`** without manual shell exports.
-- **Admin accounts:** `npm run db:seed-admins` upserts **`fahad2albassam@gmail.com`** and **`obayyassine@gmail.com`** when **`ADMIN_SEED_PASSWORD_FAHAD`** and **`ADMIN_SEED_PASSWORD_OBAI`** are set (Node script only; **no plaintext passwords in git**). The same command ensures default rows in the **`categories`** collection for the admin category picker.
-- **Auth (unified):** Passwords are stored with PHP **`password_hash()`** and verified with **`password_verify()`** (no custom salting). **Storefront UX:** **`AuthModal`** (**`components/site/auth-modal.tsx`**) is the primary flow — **login** and **register** share one shadcn **Dialog** (text-link switches: “New? Register here” / “Already have an account? Login here”), calling **`customer-login.php`** / **`register.php`** via **`CustomerAuthProvider`**. The standalone **`/register`** route still exists but is secondary. **Registration** — **`POST /backend/auth/register.php`** creates a row in **`users`** and signs the browser in. **Login** — **`auth/customer-login.php`** matches **`auth/login.php`** server logic (**`users`** then **`admins`**). Session keys **`gp_user_*`** + checkout mirrors; **`admin_*`** when **`role: admin`**. **`auth/me.php`** (admin-only probe) and **`customer-me.php`** (storefront + role) stay aligned; PHP normalizes Mongo **`_id`** from JSON-expanded docs so session user ids are always real hex strings, not **`"Array"`**. **`Logout`** clears identity keys; **`gp_cart`** unchanged.
-- **Admin access:** After any successful login, users with **`role: admin`** open **`/admin/*`**. **Middleware** checks **`me.php`**; guests hitting admin routes are sent to **`/?login=1`** (opens the same **`AuthModal`**), and signed-in non-admins are sent to **`/`**. **`/admin/login`** is a compatibility stub with links to the storefront sign-in — not a separate credential system.
-- **Support tickets:** The support form **`POST`s** to **`support/ticket.php`** → MongoDB **`supportTickets`**. Admins review under **`/admin/support`** (**`admin/support-tickets.php`**).
-- **Cart & checkout:** Guest **add-to-cart** uses PHP session cart. **Checkout requires** storefront sign-in; after login, **`openLogin("/checkout")`** returns the user to checkout without losing the cart. The storefront re-fetches the cart after login/register (**`gp-cart-refresh`**) so line items stay visible without a full reload. **`checkout/place.php`** enforces checkout session server-side (**401** for guests), requires **contact email = signed-in account email** (**400** if not), persists a real **`orders`** document ( **`userId`**, **`userEmail`**, **`items`** with **`image`**, **`subtotal`**, **`total`**, **`status`** starting **`pending`**, timestamps), decrements **`products.stockQty`**, and clears the session cart.
-- **Orders:** **`/orders`** lists the signed-in customer’s orders from **`GET /backend/orders/mine.php`** with a detail dialog backed by **`orders/detail.php`** (403 if not owned). **Admin:** **`/admin/orders`** lists all orders and supports **shadcn `Select`** status updates via **`PATCH /backend/admin/order.php`**.
-- **Catalog:** Published products appear on **home** (`fetchPublishedParts` → `catalog/products.php?published=1&limit=4`), **shop**, and **PDP** only from MongoDB via PHP (**no** merged preview/dev arrays on live routes). Storefront visibility uses **`gp_match_published_catalog()`** — documents are hidden only when **`published === false`**. Listings sort by **`createdAt` descending**. **`resolvePartImageSrc`** maps **`/uploads/...`** to **`/backend/uploads/...`** for **`admin/upload-image.php`** output.
-- **Empty states:** If the database has no published products, **home** and **shop** show stable empty UI (dashed panels / copy) without fake cards.
-- **Home “Brands We Cover” strip:** Logos load from **`public/images/brandlogos/`** (discovered at runtime on the server), infinite CSS marquee with subtle perspective, **`prefers-reduced-motion`** static layout, and **`next/image`**.
+Product images in the repo live under **`public/images/`** (and admin uploads go through PHP into **`php/public/uploads/`**). `next/image` is set up to allow the local PHP server for those.
 
-### Customer vs admin
+## How we ran it locally (Windows, what we had)
 
-- **Customer** routes use **`CustomerProviders`** (real storefront session via PHP `customer-*` endpoints).
-- **Admin** uses **`AdminLayoutShell`** and **`AdminSessionProvider`**; staff sign in through the storefront **`AuthModal`**, then open **Admin** from the account menu when **`role === "admin"`**.
+1. Clone the repo, `cd` into it.
+2. **Node:** `npm install`
+3. **PHP deps:** `cd php` then `composer install`, then `cd ..`
+4. **Env:** copy `.env.example` to **`.env.local`** in the project root (same folder as `package.json`). Put your real **`MONGODB_URI`** in there. **`PHP_BACKEND_URL=http://127.0.0.1:8080`** should match the PHP server.
+5. Optional: if you need admin users in the DB, set **`ADMIN_SEED_PASSWORD_FAHAD`** and **`ADMIN_SEED_PASSWORD_OBAI`** in `.env.local` and run **`npm run db:seed-admins`** (see script / comments — don’t commit real passwords).
+6. Start everything: **`npm run dev:full`** — that runs Next dev server + PHP’s built-in server together.
 
-### Environment
+After that open whatever port Next prints (usually **http://localhost:3000**). PHP listens on **8080** in our setup.
 
-| Variable | Purpose |
-|----------|---------|
-| `MONGODB_URI` | MongoDB (PHP + seed scripts). |
-| `PHP_BACKEND_URL` | e.g. `http://127.0.0.1:8080` — Next rewrites + RSC server fetch. |
-| `ADMIN_SEED_PASSWORD_FAHAD`, `ADMIN_SEED_PASSWORD_OBAI` | Optional — **`scripts/seed-admins.mjs`** only. |
+### If you’re not on Windows
 
-### Tracking & audit
+`package.json` has the PHP command hardcoded to **`C:\xampp\php\php.exe`** because that’s what we used. On Mac/Linux, change the **`php:server`** script to your normal `php` binary, e.g. `php -S 127.0.0.1:8080 -t php/public` from the repo root, or install PHP and point the script at it.
 
-- **`tracker.md`** — phase history and **final stabilization** notes (files, decisions, remaining issues).
-- **`DATABASE_AUDIT.md`** — schema, endpoint map, auth model, and **final truth audit** (Working / Partial / Not Done / Blocked).
-- **`php/README.md`** — PHP setup and endpoint list.
+You can also run **two terminals**: one with `npm run dev`, one with your `php -S ... -t php/public` equivalent.
 
-### Next teammate / backlog (honest)
+## Extra docs (more detail than this file)
 
-- **Migrating seeded staff from `admins`-only into `users`** if you want a single collection only (runtime already checks both).
-- **Production-grade uploads** (virus scan, ACL, CDN) beyond the current **PHP `public/uploads`** + **`admin/upload-image.php`** flow.
-- **Richer client-side validation** (optional polish on top of HTML5 `required`).
+- **`php/README.md`** — PHP endpoints, env loading, composer.
+- **`DATABASE_AUDIT.md`** — collections, who talks to what.
+- **`tracker.md`** — what we changed over time / phases.
 
 ---
 
-## Fahad — Frontend (historical product note)
-
-Customer-facing and admin UIs for **Gulf Parts Co**: restrained automotive storefront built with **Next.js App Router**, **TypeScript**, **Tailwind CSS v4**, **shadcn/ui**, and **next-themes**. Branding: navbar **G**, footer **Gulf Parts Co**, neutral dark “graphite” cards. Shop: sticky filters, pagination (9 per page). See **`tracker.md`** for full phase checklist (Phases 1–13 UI milestones).
+*Older handoff notes were folded into those files; this README is just the short version for someone cloning the project cold.*
