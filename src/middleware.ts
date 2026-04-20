@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Server-side guard for /admin (except login): asks PHP `auth/me.php` with forwarded cookies.
+ * Server-side guard for `/admin/*`: asks PHP `auth/me.php` with forwarded cookies.
+ * Guests and signed-in non-admins are redirected away (`/?login=1` or `/`); only DB `role === "admin"` passes.
  * Defense in depth with `AdminAccessGate`; PHP remains authority for role + session.
  */
 function phpOrigin(): string {
@@ -32,15 +33,38 @@ export async function middleware(request: NextRequest) {
     }
   };
 
+  const checkStorefrontSession = async (): Promise<boolean> => {
+    try {
+      const res = await fetch(`${phpOrigin()}/auth/customer-me.php`, {
+        headers: { cookie },
+        cache: "no-store",
+      });
+      if (!res.ok) return false;
+      const data = (await res.json()) as { authenticated?: boolean };
+      return data.authenticated === true;
+    } catch {
+      return false;
+    }
+  };
+
+  const redirectNonAdminAway = async () => {
+    const signedInStorefront = await checkStorefrontSession();
+    const dest = signedInStorefront ? "/" : "/?login=1";
+    return NextResponse.redirect(new URL(dest, request.url));
+  };
+
   if (pathname === "/admin/login") {
     if (await checkAdmin()) {
       return NextResponse.redirect(new URL("/admin/dashboard", request.url));
     }
-    return NextResponse.next();
+    if (await checkStorefrontSession()) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+    return NextResponse.redirect(new URL("/?login=1", request.url));
   }
 
   if (!(await checkAdmin())) {
-    return NextResponse.redirect(new URL("/admin/login", request.url));
+    return redirectNonAdminAway();
   }
 
   return NextResponse.next();

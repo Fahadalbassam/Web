@@ -108,13 +108,58 @@ function gp_iso_datetime($v): ?string
     return null;
 }
 
-/** @param array<string,mixed> $doc */
+/**
+ * Coerce Mongo `_id` from driver BSON, JSON-normalized arrays, or plain strings.
+ * `gp_normalize_doc()` turns ObjectId into `['$oid' => '...']` — casting that to string
+ * triggers "Array to string conversion" and yields the useless literal "Array".
+ *
+ * @param array<string,mixed> $doc
+ */
 function gp_oid_string(array $doc): ?string
 {
-    if (!isset($doc['_id'])) {
+    if (!array_key_exists('_id', $doc)) {
         return null;
     }
-    return (string) $doc['_id'];
+    $id = $doc['_id'];
+    if ($id instanceof ObjectId) {
+        return (string) $id;
+    }
+    if (is_string($id)) {
+        $id = trim($id);
+
+        return $id !== '' ? $id : null;
+    }
+    if (is_array($id)) {
+        if (isset($id['$oid']) && is_string($id['$oid'])) {
+            $s = trim($id['$oid']);
+
+            return $s !== '' ? $s : null;
+        }
+
+        return null;
+    }
+    if (is_object($id) && method_exists($id, '__toString')) {
+        $s = trim((string) $id);
+
+        return $s !== '' ? $s : null;
+    }
+
+    return null;
+}
+
+/** @param mixed $v */
+function gp_auth_scalar_string($v, string $default = ''): string
+{
+    if (is_string($v)) {
+        $t = trim($v);
+
+        return $t !== '' ? $t : $default;
+    }
+    if (is_int($v) || is_float($v)) {
+        return (string) $v;
+    }
+
+    return $default;
 }
 
 /** @param array<string,mixed>|object $doc */
@@ -297,7 +342,7 @@ function gp_try_login_credentials(string $email, string $password): array
     if ($hash === '' || !password_verify($password, $hash)) {
         return ['ok' => false, 'code' => 401, 'error' => 'Invalid credentials'];
     }
-    $role = (string) ($doc['role'] ?? 'user');
+    $role = gp_auth_scalar_string($doc['role'] ?? 'user', 'user');
     if ($role !== 'admin' && $role !== 'user') {
         $role = 'user';
     }
@@ -336,7 +381,7 @@ function gp_require_admin(): void
         echo json_encode(['error' => 'Unauthorized']);
         exit;
     }
-    if ((string) ($doc['role'] ?? '') !== 'admin') {
+    if (gp_auth_scalar_string($doc['role'] ?? '', '') !== 'admin') {
         http_response_code(403);
         gp_json_headers();
         echo json_encode(['error' => 'Forbidden']);

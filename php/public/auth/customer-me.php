@@ -19,15 +19,20 @@ if ($id === '' || $sessEmail === '') {
 }
 
 $doc = gp_find_auth_doc_by_id($id);
-$dbEmail = strtolower(trim((string) ($doc['email'] ?? '')));
-
-if ($doc === null || $dbEmail === '' || $dbEmail !== $sessEmail) {
+if ($doc === null) {
     gp_clear_auth_identity_keys();
     echo json_encode(['authenticated' => false]);
     exit;
 }
 
-$role = (string) ($doc['role'] ?? 'user');
+$dbEmail = strtolower(trim(gp_auth_scalar_string($doc['email'] ?? '', '')));
+if ($dbEmail === '' || $dbEmail !== $sessEmail) {
+    gp_clear_auth_identity_keys();
+    echo json_encode(['authenticated' => false]);
+    exit;
+}
+
+$role = gp_auth_scalar_string($doc['role'] ?? 'user', 'user');
 if ($role !== 'admin' && $role !== 'user') {
     $role = 'user';
 }

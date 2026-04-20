@@ -25,7 +25,7 @@ if ($doc === null) {
     exit;
 }
 
-$dbEmail = strtolower(trim((string) ($doc['email'] ?? '')));
+$dbEmail = strtolower(trim(gp_auth_scalar_string($doc['email'] ?? '', '')));
 
 if ($dbEmail === '' || $dbEmail !== $sessEmail) {
     gp_clear_auth_identity_keys();
@@ -33,7 +33,7 @@ if ($dbEmail === '' || $dbEmail !== $sessEmail) {
     exit;
 }
 
-if ((string) ($doc['role'] ?? '') !== 'admin') {
+if (gp_auth_scalar_string($doc['role'] ?? '', '') !== 'admin') {
     // Signed-in customer — not staff; do not destroy their storefront session.
     echo json_encode(['authenticated' => false]);
     exit;

@@ -54,11 +54,12 @@ export function SiteFooter() {
         <div className="mt-10 flex flex-col gap-2 border-t border-border pt-8 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <span>© {new Date().getFullYear()} Gulf Parts Co. All rights reserved.</span>
           <span className="text-muted-foreground/80">
-            Customer UI only — admin sign-in lives at{" "}
-            <Link href="/admin/login" className="text-foreground hover:underline">
-              /admin/login
+            Staff use the same account as customers — sign in from the header, then open Admin from the account menu
+            when your role is admin (
+            <Link href="/?login=1" className="text-foreground hover:underline">
+              open sign in
             </Link>
-            .
+            ).
           </span>
         </div>
       </div>

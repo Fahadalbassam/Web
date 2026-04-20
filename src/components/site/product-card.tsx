@@ -42,18 +42,18 @@ export function ProductCard({
   return (
     <Card
       className={cn(
-        "group flex h-full flex-col overflow-hidden border-border bg-card text-card-foreground shadow-none transition-[box-shadow,transform] hover:shadow-md dark:hover:shadow-none dark:hover:ring-1 dark:hover:ring-border",
+        "group flex h-full flex-col gap-0 overflow-hidden border-border bg-card py-0 text-card-foreground shadow-none transition-[box-shadow,transform] hover:shadow-md dark:hover:shadow-none dark:hover:ring-1 dark:hover:ring-border",
         className
       )}
     >
-      <CardHeader className="p-0">
-        <Link href={detailHref} className="block">
-          <div className="relative aspect-[4/3] bg-white">
+      <CardHeader className="block space-y-0 border-0 p-0 shadow-none">
+        <Link href={detailHref} className="block outline-none">
+          <div className="relative aspect-[4/3] w-full overflow-hidden bg-white rounded-t-xl">
             <Image
               src={img}
               alt={part.name}
               fill
-              className="transition-transform duration-300 group-hover:scale-[1.02] object-cover"
+              className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
               sizes="(max-width:768px) 100vw, 33vw"
             />
           </div>

@@ -6,7 +6,18 @@
 
 ## Current phase
 
-**Phase 20 — PHP loads repo `.env.local` (Apr 2026)** — **`vlucas/phpdotenv`** + **`php/include/load-env.php`** so **`MONGODB_URI`** is available to **`php -S`** without shell exports; **`npm run dev:full`** stable.
+**Phase 21 — Auth session correctness + admin gate + modal layout (Apr 2026)** — Fixed Mongo JSON **`_id`** handling in PHP (no **`Array to string conversion`**), unified admin redirects with storefront **`/?login=1`**, **`scrollbar-gutter: stable`**, and **`AdminSessionProvider`** refresh when entering **`/admin/*`**.
+
+---
+
+## Phase 21 — Auth session correctness + admin gate + modal layout (Apr 2026)
+
+- **What caused the storefront “still logged out” bug:** **`gp_normalize_doc()`** turns BSON **`ObjectId`** into **`{ "$oid": "…" }`**. **`gp_oid_string()`** used **`(string) $doc['_id']`**, which coerced that array to the literal **`"Array"`** (with a PHP warning), so **`gp_user_id`** in the session was wrong and **`customer-me.php`** could not resolve the user.
+- **What changed (PHP):** **`gp_oid_string()`** now accepts **`ObjectId`**, extended-JSON **`$oid`**, and plain strings. Added **`gp_auth_scalar_string()`** for safe **`role`** / **`email`** reads after normalization. **`customer-me.php`** checks **`$doc === null`** before reading fields; **`me.php`** uses the same helpers.
+- **What changed (admin access):** **`src/middleware.ts`** probes **`customer-me.php`** when **`me.php`** denies access: guests → **`/?login=1`** (opens **`AuthModal`** via **`StorefrontAuthDeepLinkOpener`**), signed-in non-admins → **`/`**. **`/admin/login`** is no longer the primary gate (compatibility stub + links). **`AdminAccessGate`** mirrors the same redirect rule client-side. **`AdminSessionProvider`** re-fetches **`me.php`** whenever **`pathname`** is under **`/admin`** so the navbar → admin navigation picks up a fresh session without waiting for window focus.
+- **What changed (UI stability):** **`globals.css`** sets **`html { scrollbar-gutter: stable; }`** so shadcn/Radix **`Dialog`** body scroll lock does not shift the page horizontally.
+- **Files:** `php/include/app.php`, `php/public/auth/customer-me.php`, `php/public/auth/me.php`, `src/middleware.ts`, `src/components/admin/admin-access-gate.tsx`, `src/components/admin/admin-layout-shell.tsx`, `src/app/admin/login/page.tsx`, `src/providers/admin-session-provider.tsx`, `src/components/customer-providers.tsx`, `src/components/site/storefront-auth-deeplink-opener.tsx`, `src/app/globals.css`, `README.md`, `DATABASE_AUDIT.md`, `tracker.md`
+- **Decisions:** One login system (**`customer-login.php`** / **`login.php`**); admin access is **`role === "admin"`** from MongoDB via **`me.php`**; no duplicate admin-only credential path.
 
 ---
 

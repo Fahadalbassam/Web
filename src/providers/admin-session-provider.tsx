@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 import { phpBrowserUrl } from "@/lib/php-backend";
 
 type AdminSessionContextValue = {
@@ -13,6 +14,7 @@ type AdminSessionContextValue = {
 const AdminSessionContext = React.createContext<AdminSessionContextValue | null>(null);
 
 export function AdminSessionProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [hydrated, setHydrated] = React.useState(false);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = React.useState(false);
 
@@ -40,6 +42,13 @@ export function AdminSessionProvider({ children }: { children: React.ReactNode }
     void refresh();
   }, [refresh]);
 
+  React.useEffect(() => {
+    if (!pathname.startsWith("/admin")) {
+      return;
+    }
+    void refresh();
+  }, [pathname, refresh]);
+
   const logout = React.useCallback(async () => {
     try {
       await fetch(phpBrowserUrl("auth/logout.php"), {
@@ -50,7 +59,8 @@ export function AdminSessionProvider({ children }: { children: React.ReactNode }
       /* ignore */
     }
     setIsAdminAuthenticated(false);
-  }, []);
+    void refresh();
+  }, [refresh]);
 
   const value = React.useMemo(
     () => ({

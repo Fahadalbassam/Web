@@ -160,3 +160,8 @@
     transform: none;
   }
 }
+
+/* Radix Dialog sets overflow:hidden on the body; stable gutter avoids horizontal layout jump */
+html {
+  scrollbar-gutter: stable;
+}

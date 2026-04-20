@@ -46,7 +46,7 @@ function AdminLogoutDialog({
   const confirm = async () => {
     await logout();
     onOpenChange(false);
-    router.push("/admin/login");
+    router.push("/");
   };
 
   return (
@@ -55,8 +55,8 @@ function AdminLogoutDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Sign out of admin?</AlertDialogTitle>
           <AlertDialogDescription>
-            You will return to the admin login screen. Your staff session and linked storefront sign-in for this
-            browser are cleared; the session cart remains until you clear it or check out.
+            Your staff session and linked storefront sign-in for this browser are cleared; the session cart remains
+            until you clear it or check out. Sign in again from the storefront if you need access.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

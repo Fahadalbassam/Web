@@ -20,7 +20,7 @@
 | Removed / replaced | Notes |
 |---------|-------|
 | `src/app/api/admin/**` | Deleted — admin/auth/crud no longer on Next. |
-| Legacy JWT `src/middleware.ts` | Removed earlier; **current** `src/middleware.ts` only probes PHP `auth/me.php` for `/admin/*` (no JWT). |
+| Legacy JWT `src/middleware.ts` | Removed earlier; **current** `src/middleware.ts` probes PHP **`auth/me.php`** and, for denials, **`auth/customer-me.php`** to choose **`/?login=1`** vs **`/`** (no JWT). |
 | `src/lib/admin-auth.ts`, JWT / `gpc_admin` | Removed — auth is PHP session only. |
 | `src/lib/repositories/*` | Removed — no Node Mongo access from app routes. |
 | `jose` npm dependency | Removed. |
@@ -72,7 +72,7 @@
 - **Single PHP session bucket** (`PHPSESSID`). Canonical keys: **`gp_user_id`**, **`gp_user_email`**, **`gp_user_role`**. Checkout reuse: **`gp_checkout_customer_id`** / **`gp_checkout_customer_email`** mirror the same identity after login.
 - **Legacy compatibility:** **`admin_id`** / **`admin_email`** are still set when **`role === "admin"`** so older assumptions remain valid; **`gp_require_admin()`** resolves the account by id from **`users`** or **`admins`** and requires **`role === "admin"`** in MongoDB.
 - **Passwords:** Stored only as **`passwordHash`** from PHP **`password_hash()`**; verification via **`password_verify()`**. Never returned to the client.
-- **Admin gating:** Next **`middleware`** and **`auth/me.php`** grant **`authenticated: true`** only for **`role === "admin"`**. Normal **`role === "user"`** accounts may sign in on the storefront but **`me.php`** reports not authenticated for admin routes, so **`/admin/*`** redirects to **`/admin/login`**. PHP admin APIs use **`gp_require_admin()`** (same rule).
+- **Admin gating:** Next **`middleware`** and **`auth/me.php`** grant **`authenticated: true`** only for **`role === "admin"`** in MongoDB. Normal **`role === "user"`** accounts may sign in on the storefront but **`me.php`** reports not authenticated for admin routes, so **`/admin/*`** (except the compatibility **`/admin/login`** stub) is blocked. Guests are redirected to **`/?login=1`** (storefront **`AuthModal`**); signed-in non-admins are redirected to **`/`**. PHP admin APIs use **`gp_require_admin()`** (same rule).
 
 ---
 
@@ -145,8 +145,8 @@
 | Guest cart | **Working** | Session cart; no login required to add/update. |
 | Storefront login / logout / register | **Working** | **`auth/register.php`** creates **`users`**; **`customer-login.php`** matches **`login.php`**; **`customer-me.php`** returns **`role`**; **`CustomerAuthProvider`**. Logout clears identity keys only; cart preserved. |
 | Admin login / logout | **Working** | Same credentials as storefront when staff exists in **`users`** or **`admins`** with **`role: admin`**. **`logout.php`** / **`customer-logout.php`** clear the same identity keys. **`me.php`** = admin-only probe for middleware. |
-| Admin route protection (Next `/admin/*` except login) | **Working** | **`src/middleware.ts`** redirects to `/admin/login` when PHP `me.php` reports `authenticated: false`; **`AdminAccessGate`** is defense in depth. PHP `gp_require_admin` + DB role on every admin API. |
-| Non-admin users blocked from `/admin` | **Working** | **`auth/me.php`** false for **`role: user`**; middleware redirects; PHP **`gp_require_admin`** on APIs. |
+| Admin route protection (Next `/admin/*`) | **Working** | **`src/middleware.ts`** checks **`me.php`**; guests → **`/?login=1`**, signed-in non-admins → **`/`**; **`/admin/login`** is a compatibility stub. **`AdminAccessGate`** mirrors redirects via **`customer-me.php`**. PHP **`gp_require_admin`** + DB role on every admin API. |
+| Non-admin users blocked from `/admin` | **Working** | **`auth/me.php`** is false for **`role: user`**; middleware sends them to **`/`**; PHP **`gp_require_admin`** on APIs. |
 | Support tickets | **Working** | **`support/ticket.php`** inserts **`supportTickets`**; **`admin/support-tickets.php`** lists + PATCH status (admin session). |
 | Milestone preview catalog (`public/images` synthesis) | **Removed** | **`preview-local-inventory.ts`** + **`storefront-catalog.ts`** deleted; home/shop are DB-only with empty states. |
 | Admin add / modify / delete / search | **Working** | CRUD on `admin/products.php` + `admin/product.php`; table search hits **`?q=`** server-side (debounced). |
