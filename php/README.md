@@ -1,6 +1,6 @@
 # PHP backend (authority layer)
 
-All course-required backend behavior is implemented here: **MongoDB** access, **PHP sessions** (`PHPSESSID`), **admin auth**, **catalog reads**, **admin product CRUD**, **session cart**, **checkout** (orders + stock decrement).
+Backend here: **MongoDB**, **PHP sessions** (`PHPSESSID`), **admin auth**, **catalog reads**, **admin product CRUD**, **session cart**, **checkout** (orders + stock decrement).
 
 ## Setup
 

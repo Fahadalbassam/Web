@@ -1,7 +1,7 @@
 <?php
 /**
  * Gulf Parts Co — PHP backend core (MongoDB + JSON API).
- * Course alignment: PHP sessions/cookies are the authority for cart + admin auth.
+ * Sessions/cookies handle cart + admin auth.
  */
 
 declare(strict_types=1);

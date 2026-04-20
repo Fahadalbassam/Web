@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-/**
- * Server-side guard for `/admin/*`: asks PHP `auth/me.php` with forwarded cookies.
- * Guests and signed-in non-admins are redirected away (`/?login=1` or `/`); only DB `role === "admin"` passes.
- * Defense in depth with `AdminAccessGate`; PHP remains authority for role + session.
- */
+/** `/admin/*`: checks PHP `auth/me.php` with cookies; guests / non-admins go to `/?login=1` or `/`. */
 function phpOrigin(): string {
   return process.env.PHP_BACKEND_URL ?? "http://127.0.0.1:8080";
 }

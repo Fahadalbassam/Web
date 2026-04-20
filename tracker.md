@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**Phase 23 — Checkout + orders finalization (Apr 2026)** — Confirmed single **`orders`** schema (§4b **`DATABASE_AUDIT.md`**), **`place.php`** enforces contact email = session account, cart/checkout wait on **`cart/get.php`** hydration (no false empty state), **`gp-cart-refresh`** after login/register for UI sync, read-only checkout email field.
+**Phase 23 — Checkout + orders finalization (Apr 2026)** — Single **`orders`** schema (see **`DATABASE_AUDIT.md`**), **`place.php`** enforces contact email = session account, cart/checkout wait on **`cart/get.php`** hydration (no false empty state), **`gp-cart-refresh`** after login/register for UI sync, read-only checkout email field.
 
 ---
 
@@ -61,7 +61,7 @@
 
 - **What changed:** **Unified PHP auth** in `php/include/app.php` (`gp_try_login_credentials`, `gp_commit_login_session`, `gp_find_auth_doc_by_email` / `by_id` for **`users` then `admins`**). **`auth/login.php`**, **`customer-login.php`**, **`register.php`**, **`me.php`**, **`customer-me.php`**, **`logout.php`**, **`customer-logout.php`** rewritten. **Storefront:** `CustomerAuthProvider` exposes **`role`**; **`user-menu`** shows Admin only for **`admin`**. **Removed** `src/lib/catalog/preview-local-inventory.ts` and `storefront-catalog.ts`; **home** + **shop** use only **`fetchPublishedParts`**. **Support:** `php/public/support/ticket.php`, `php/public/admin/support-tickets.php`, **`/admin/support`**, wired **`support-form.tsx`**. **Docs:** `DATABASE_AUDIT.md`, `README.md`, this file.
 - **Files (main):** `php/include/app.php`, `php/public/auth/*.php`, `php/public/support/ticket.php`, `php/public/admin/support-tickets.php`, `src/app/(customer)/page.tsx`, `src/app/(customer)/shop/page.tsx`, `src/app/(customer)/register/page.tsx`, `src/app/(customer)/support/support-form.tsx`, `src/app/admin/support/page.tsx`, `src/components/admin/admin-layout-shell.tsx`, `src/components/admin/admin-support-tickets-panel.tsx`, `src/components/site/user-menu.tsx`, `src/components/site/auth-modal.tsx`, `src/components/site/product-card.tsx`, `src/lib/catalog/part.ts`, `src/lib/catalog-fetch.ts`, `src/providers/customer-auth-provider.tsx`, `DATABASE_AUDIT.md`, `README.md`, `tracker.md`
-- **Decisions:** One session bucket; **`me.php`** is admin-only probe so **`role: user`** cannot open **`/admin/*`**. Preview image synthesis removed per course “database is truth.” Passwords only via **`password_hash` / `password_verify`**.
+- **Decisions:** One session bucket; **`me.php`** is admin-only probe so **`role: user`** cannot open **`/admin/*`**. Dropped preview image synthesis so the live catalog is only Mongo. Passwords only via **`password_hash` / `password_verify`**.
 - **Remaining:** Optional migration of **`admins`** → **`users`** for a single collection (runtime already checks both). **`/orders`** is backed by **`orders/mine.php`** + **`orders/detail.php`** as of Phase 22+.
 
 ---
@@ -123,9 +123,9 @@ Single pass: seeded admins + categories, server-side admin protection, `me.php` 
 
 ---
 
-## Phase 14 — Final stabilization (Fahad handoff)
+## Phase 14 — Final stabilization
 
-Single integration pass: reliable local dev, no competing backends, no live mock catalog, admin + checkout auth aligned with PHP sessions.
+Wrapped up local dev, one backend path, real catalog from PHP/Mongo, admin + checkout using the same PHP sessions.
 
 ### Phase 14 — local run reliability
 
@@ -152,7 +152,7 @@ Single integration pass: reliable local dev, no competing backends, no live mock
 
 - **What changed:** **`AdminAccessGate`** wraps all admin shell routes except login; PHP **`gp_require_admin`** now verifies MongoDB document and **`role === "admin"`** on every admin API call.
 - **Files:** `src/components/admin/admin-access-gate.tsx`, `src/components/admin/admin-layout-shell.tsx`, `php/include/app.php`, `php/public/auth/login.php`
-- **Decisions:** Next has no middleware by design; client gate + PHP enforcement together meet the bar.
+- **Decisions:** `AdminAccessGate` on the client plus PHP `gp_require_admin` on admin APIs.
 - **Remaining:** RSC admin pages may briefly run before client redirect (empty data only).
 
 ### Phase 14 — login / logout
@@ -178,7 +178,7 @@ Single integration pass: reliable local dev, no competing backends, no live mock
 
 ### Phase 14 — documentation
 
-- **What changed:** **`DATABASE_AUDIT.md`** §10 truth audit; **`README.md`** Fahad handoff; **`php/README.md`** endpoints; this **`tracker.md`** section.
+- **What changed:** **`DATABASE_AUDIT.md`** section 10 audit; **`README.md`**; **`php/README.md`** endpoints; this **`tracker.md`** section.
 - **Files:** `DATABASE_AUDIT.md`, `README.md`, `php/README.md`, `tracker.md`
 
 ---
@@ -344,7 +344,7 @@ Foundation through Phase 11 remains in place (routes, mocks, theme tokens). **Ph
 
 **Files updated:** `src/components/site/site-header.tsx`, `src/components/site/site-footer.tsx`, `src/app/layout.tsx`, `src/app/(customer)/page.tsx`, `src/components/admin/admin-layout-shell.tsx`, `src/app/(customer)/support/support-form.tsx`.
 
-**Notes:** README / tracker titles aligned with Gulf Parts Co; course “CarPart” repo title kept where appropriate.
+**Notes:** README / tracker titles aligned with Gulf Parts Co; repo title can stay CarPart where it already is.
 
 #### 12b — Hero carousel cleanup
 

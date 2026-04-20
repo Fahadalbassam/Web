@@ -46,7 +46,7 @@ if ($customer['fullName'] === '' || $customer['email'] === '' || $shipping['line
     exit;
 }
 
-// Course / security: order is always tied to the authenticated session — contact email must match account.
+// Order is tied to the signed-in session — contact email must match the account.
 $customerEmailNorm = strtolower(trim($customer['email']));
 if ($customerEmailNorm === '' || $customerEmailNorm !== $userEmail) {
     http_response_code(400);

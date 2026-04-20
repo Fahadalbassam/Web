@@ -1,7 +1,7 @@
 <?php
 /**
  * POST multipart field "file" — saves under /uploads (served by PHP public root).
- * Course: image stored as path/filename in Mongo; binary lands on disk here.
+ * Path/filename goes in Mongo; file bytes go on disk under uploads.
  */
 declare(strict_types=1);
 

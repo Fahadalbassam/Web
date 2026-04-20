@@ -35,7 +35,3 @@ You can also run **two terminals**: one with `npm run dev`, one with your `php -
 - **`php/README.md`** — PHP endpoints, env loading, composer.
 - **`DATABASE_AUDIT.md`** — collections, who talks to what.
 - **`tracker.md`** — what we changed over time / phases.
-
----
-
-*Older handoff notes were folded into those files; this README is just the short version for someone cloning the project cold.*

@@ -1,4 +1,4 @@
-/** MongoDB collection names — single source of truth for both Node and documented PHP scripts. */
+/** MongoDB collection names (shared between Node scripts and PHP). */
 
 export const COLLECTIONS = {
   products: "products",
