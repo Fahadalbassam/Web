@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { PageIntro } from "@/components/site/page-intro";
@@ -14,7 +15,8 @@ import { CatalogPartImage } from "@/components/site/catalog-part-image";
 import { SarCurrency } from "@/components/site/sar-currency";
 
 export function CartView() {
-  const { lines, setQuantity, remove, subtotal, hydrated } = useCart();
+  const { lines, setQuantity, remove, clear, subtotal, hydrated } = useCart();
+  const [clearing, setClearing] = React.useState(false);
   const { isLoggedIn } = useCustomerAuth();
   const { openLogin } = useStorefrontAuthModal();
 
@@ -147,6 +149,19 @@ export function CartView() {
           )}
           <Button asChild variant="outline" className="mt-3 w-full border-border bg-background">
             <Link href="/shop">Keep shopping</Link>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-2 w-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            disabled={clearing}
+            onClick={() => {
+              if (!window.confirm("Remove all items from your cart?")) return;
+              setClearing(true);
+              void clear().finally(() => setClearing(false));
+            }}
+          >
+            {clearing ? "Clearing…" : "Clear cart"}
           </Button>
         </aside>
       </div>

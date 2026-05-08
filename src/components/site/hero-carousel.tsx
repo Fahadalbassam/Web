@@ -45,12 +45,13 @@ export function HeroCarousel({ slides, className }: HeroCarouselProps) {
   return (
     <div className={cn("space-y-5", className)}>
       <Carousel className="w-full" opts={{ loop: true }} setApi={setApi}>
-        <CarouselContent>
+        <CarouselContent className="items-stretch">
           {limited.map((slide) => (
-            <CarouselItem key={slide.id}>
-              <div className="relative overflow-hidden rounded-2xl border border-border bg-surface-2">
-                <div className="grid gap-0 md:grid-cols-[1.05fr_0.95fr]">
-                  <div className="flex flex-col justify-center px-6 py-10 sm:px-10 md:py-14">
+            <CarouselItem key={slide.id} className="flex">
+              {/** Fixed height on md+ so every slide matches; mobile uses stable image band + flexible copy. */}
+              <div className="relative flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface-2 md:h-[28rem] md:min-h-[28rem]">
+                <div className="grid min-h-0 flex-1 gap-0 md:grid-cols-[1.05fr_0.95fr] md:grid-rows-1">
+                  <div className="flex flex-col justify-center px-6 py-8 sm:px-10 md:h-full md:min-h-0 md:overflow-y-auto md:py-10 md:pr-8">
                     <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                       Precision fitment
                     </p>
@@ -60,13 +61,13 @@ export function HeroCarousel({ slides, className }: HeroCarouselProps) {
                     <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
                       {slide.subtitle}
                     </p>
-                    <div className="mt-8">
+                    <div className="mt-8 shrink-0">
                       <Button asChild size="lg">
                         <Link href={slide.ctaHref}>{slide.ctaLabel}</Link>
                       </Button>
                     </div>
                   </div>
-                  <div className="relative min-h-[220px] md:min-h-[320px]">
+                  <div className="relative min-h-[220px] shrink-0 md:h-full md:min-h-0">
                     <Image
                       src={slide.image}
                       alt=""

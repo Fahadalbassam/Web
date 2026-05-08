@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FooterStaffNote } from "@/components/site/footer-staff-note";
 
 const cols = [
   {
@@ -53,14 +54,7 @@ export function SiteFooter() {
         </div>
         <div className="mt-10 flex flex-col gap-2 border-t border-border pt-8 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <span>© {new Date().getFullYear()} Gulf Parts Co. All rights reserved.</span>
-          <span className="text-muted-foreground/80">
-            Staff use the same account as customers — sign in from the header, then open Admin from the account menu
-            when your role is admin (
-            <Link href="/?login=1" className="text-foreground hover:underline">
-              open sign in
-            </Link>
-            ).
-          </span>
+          <FooterStaffNote />
         </div>
       </div>
     </footer>

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { ShoppingCart } from "lucide-react";
 import { PageSection } from "@/components/site/page-section";
 import { PageIntro } from "@/components/site/page-intro";
 import { Separator } from "@/components/ui/separator";
@@ -17,7 +18,10 @@ import {
 import { SarCurrency } from "@/components/site/sar-currency";
 import { CatalogPartImage } from "@/components/site/catalog-part-image";
 import { resolvePartImageSrc } from "@/lib/catalog/resolve-part-image";
+import type { Part } from "@/lib/catalog/part";
+import { effectiveStockQty, isStorefrontAvailable } from "@/lib/catalog/part";
 import { phpBrowserUrl } from "@/lib/php-backend";
+import { useCart } from "@/providers/cart-provider";
 import { useCustomerAuth } from "@/providers/customer-auth-provider";
 import { useStorefrontAuthModal } from "@/providers/storefront-auth-modal-provider";
 
@@ -65,11 +69,134 @@ function statusLabel(status: string): string {
   return status.replace(/_/g, " ");
 }
 
+const BUY_AGAIN_ORDER_LIMIT = 3;
+
+type BuyAgainRow = {
+  slug: string;
+  name: string;
+  image: string;
+  /** Quantity from the most recent order that included this SKU. */
+  lastQuantity: number;
+};
+
+async function fetchOrderDetailClient(id: string): Promise<OrderDetail | null> {
+  try {
+    const res = await fetch(phpBrowserUrl(`orders/detail.php?id=${encodeURIComponent(id)}`), {
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { order?: OrderDetail };
+    return data.order ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function BuyAgainStrip({ rows }: { rows: BuyAgainRow[] }) {
+  const { add } = useCart();
+  const [busySlug, setBusySlug] = React.useState<string | null>(null);
+  const [feedback, setFeedback] = React.useState<string | null>(null);
+
+  if (rows.length === 0) return null;
+
+  const handleBuyAgain = async (row: BuyAgainRow) => {
+    setFeedback(null);
+    setBusySlug(row.slug);
+    try {
+      const res = await fetch(
+        phpBrowserUrl(`catalog/product.php?slug=${encodeURIComponent(row.slug)}`),
+        { credentials: "include", cache: "no-store" }
+      );
+      if (!res.ok) {
+        setFeedback(`“${row.name}” is no longer available in the catalog.`);
+        return;
+      }
+      const data = (await res.json()) as { part?: Part };
+      const part = data.part;
+      if (!part) {
+        setFeedback(`Could not load “${row.name}”.`);
+        return;
+      }
+      if (!isStorefrontAvailable(part)) {
+        setFeedback(`“${part.name}” is currently out of stock.`);
+        return;
+      }
+      const stock = effectiveStockQty(part);
+      const qty =
+        stock != null ? Math.min(Math.max(1, row.lastQuantity), stock) : Math.max(1, row.lastQuantity);
+      await add(part, qty);
+      setFeedback(`Added ${qty}× ${part.name} to your cart.`);
+    } catch {
+      setFeedback("Could not add to cart — try again.");
+    } finally {
+      setBusySlug(null);
+    }
+  };
+
+  return (
+    <section className="mt-12 rounded-xl border border-border bg-muted/20 p-5 dark:bg-muted/10">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="font-heading text-lg font-semibold text-foreground">Buy again</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            From your recent orders — restock with one tap (quantity matches your last purchase when stock allows).
+          </p>
+        </div>
+      </div>
+      {feedback ? (
+        <p className="mt-4 text-sm text-muted-foreground" role="status">
+          {feedback}
+        </p>
+      ) : null}
+      <div className="mt-5 flex gap-4 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {rows.map((row) => (
+          <div
+            key={row.slug}
+            className="flex w-[min(100%,220px)] shrink-0 flex-col gap-3 rounded-lg border border-border bg-card p-3 text-card-foreground"
+          >
+            <div className="relative aspect-4/3 w-full overflow-hidden rounded-md bg-muted">
+              <CatalogPartImage
+                src={resolvePartImageSrc(row.image)}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="220px"
+              />
+            </div>
+            <div className="min-h-0 flex-1 space-y-1">
+              <Link
+                href={`/shop/${row.slug}`}
+                className="line-clamp-2 text-sm font-medium text-foreground hover:text-primary"
+              >
+                {row.name}
+              </Link>
+              <p className="text-xs text-muted-foreground">Last ordered ×{row.lastQuantity}</p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              className="w-full gap-2"
+              disabled={busySlug === row.slug}
+              onClick={() => void handleBuyAgain(row)}
+            >
+              <ShoppingCart className="size-4 shrink-0" />
+              {busySlug === row.slug ? "Adding…" : "Buy again"}
+            </Button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function OrdersView() {
   const { isLoggedIn, hydrated } = useCustomerAuth();
   const { openLogin } = useStorefrontAuthModal();
   const [orders, setOrders] = React.useState<OrderSummary[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const [buyAgainRows, setBuyAgainRows] = React.useState<BuyAgainRow[]>([]);
+  const [buyAgainLoading, setBuyAgainLoading] = React.useState(false);
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [detail, setDetail] = React.useState<OrderDetail | null>(null);
   const [detailLoading, setDetailLoading] = React.useState(false);
@@ -97,6 +224,43 @@ export function OrdersView() {
   React.useEffect(() => {
     if (isLoggedIn && hydrated) void load();
   }, [isLoggedIn, hydrated, load]);
+
+  React.useEffect(() => {
+    if (orders.length === 0) {
+      setBuyAgainRows([]);
+      setBuyAgainLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setBuyAgainLoading(true);
+    void (async () => {
+      try {
+        const slice = orders.slice(0, BUY_AGAIN_ORDER_LIMIT);
+        const details = await Promise.all(slice.map((o) => fetchOrderDetailClient(o.id)));
+        if (cancelled) return;
+        const bySlug = new Map<string, BuyAgainRow>();
+        for (const d of details) {
+          if (!d?.items?.length) continue;
+          for (const it of d.items) {
+            const slug = it.slug?.trim();
+            if (!slug || bySlug.has(slug)) continue;
+            bySlug.set(slug, {
+              slug,
+              name: it.name || slug,
+              image: it.image || "",
+              lastQuantity: Math.max(1, it.quantity),
+            });
+          }
+        }
+        setBuyAgainRows(Array.from(bySlug.values()));
+      } finally {
+        if (!cancelled) setBuyAgainLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orders]);
 
   const openDetail = async (id: string) => {
     setDetailOpen(true);
@@ -190,6 +354,13 @@ export function OrdersView() {
             ))}
           </div>
         )}
+        {orders.length > 0 ? (
+          buyAgainLoading ? (
+            <p className="mt-10 text-sm text-muted-foreground">Loading buy again suggestions…</p>
+          ) : (
+            <BuyAgainStrip rows={buyAgainRows} />
+          )
+        ) : null}
         <Separator className="my-10 bg-border" />
         <div className="text-sm text-muted-foreground">
           Need help with an order?{" "}

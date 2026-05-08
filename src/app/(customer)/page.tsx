@@ -9,6 +9,7 @@ import { CTASection } from "@/components/site/cta-section";
 import { Button } from "@/components/ui/button";
 import { heroSlides } from "@/lib/mock/hero-slides";
 import { fetchPublishedParts } from "@/lib/catalog-fetch";
+import { isStorefrontAvailable } from "@/lib/catalog/part";
 import { getBrandLogoPublicPaths } from "@/lib/brand-logos-server";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,8 @@ export default async function HomePage() {
 
   let featured = [] as Awaited<ReturnType<typeof fetchPublishedParts>>;
   try {
-    featured = await fetchPublishedParts(4);
+    const raw = await fetchPublishedParts(32);
+    featured = raw.filter(isStorefrontAvailable).slice(0, 4);
   } catch {
     featured = [];
   }

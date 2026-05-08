@@ -3,10 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { PageIntro } from "@/components/site/page-intro";
+import { CatalogPartImage } from "@/components/site/catalog-part-image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { resolvePartImageSrc } from "@/lib/catalog/resolve-part-image";
 import { phpBrowserUrl } from "@/lib/php-backend";
 import { useCart } from "@/providers/cart-provider";
 import { useCustomerAuth } from "@/providers/customer-auth-provider";
@@ -195,19 +197,49 @@ export function CheckoutForm() {
         <aside className="h-fit space-y-4 rounded-xl border border-border bg-surface-2/50 p-6">
           <h2 className="text-sm font-semibold text-foreground">Order summary</h2>
           <Separator className="bg-border" />
-          <ul className="space-y-3 text-sm">
-            {lines.map(({ part, quantity, cartSlug }) => (
-              <li key={cartSlug ?? part.slug} className="flex justify-between gap-4 text-muted-foreground">
-                <span className="min-w-0 flex-1 truncate text-foreground">
-                  {part.name}{" "}
-                  <span className="text-muted-foreground">×{quantity}</span>
-                </span>
-                <SarCurrency
-                  amount={part.price * quantity}
-                  className="shrink-0 text-foreground"
-                />
-              </li>
-            ))}
+          <ul className="space-y-4 text-sm">
+            {lines.map(({ part, quantity, cartSlug }) => {
+              const cartKey = cartSlug ?? part.slug;
+              return (
+                <li
+                  key={cartKey}
+                  className="flex gap-3 rounded-lg border border-border/80 bg-background/60 p-3 text-card-foreground"
+                >
+                  <div className="relative size-[4.5rem] shrink-0 overflow-hidden rounded-md bg-muted">
+                    <CatalogPartImage
+                      src={resolvePartImageSrc(part.image)}
+                      alt={part.name}
+                      fill
+                      className="object-cover"
+                      sizes="72px"
+                    />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {part.brand}
+                    </p>
+                    <Link
+                      href={`/shop/${part.slug}`}
+                      className="break-words font-medium leading-snug text-foreground hover:text-primary"
+                    >
+                      {part.name}
+                    </Link>
+                    <p className="font-mono text-[11px] text-muted-foreground">{part.partNumber}</p>
+                    <div className="mt-auto flex flex-wrap items-baseline justify-between gap-2 pt-1">
+                      <p className="text-xs text-muted-foreground">
+                        Qty <span className="tabular-nums font-medium text-foreground">{quantity}</span>
+                        <span className="mx-1.5 text-border">·</span>
+                        <SarCurrency amount={part.price} className="text-xs text-muted-foreground" /> each
+                      </p>
+                      <SarCurrency
+                        amount={part.price * quantity}
+                        className="shrink-0 text-sm font-semibold text-foreground"
+                      />
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
           <Separator className="bg-border" />
           <div className="flex items-center justify-between text-sm">

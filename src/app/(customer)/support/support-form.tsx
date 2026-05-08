@@ -143,20 +143,13 @@ export function SupportPageContent() {
               </dl>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-border bg-muted">
-              <div className="relative aspect-[16/10] bg-gradient-to-br from-surface-2 via-surface-3 to-surface-2">
-                <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                      Location
-                    </p>
-                    <p className="mt-2 text-sm font-medium text-foreground">Detroit logistics hub (map placeholder)</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      1200 Industrial Ave · Detroit, MI
-                    </p>
-                  </div>
-                </div>
-              </div>
+            <div className="rounded-xl border border-border bg-surface-2/50 p-6">
+              <h2 className="text-sm font-semibold text-foreground">Location</h2>
+              <p className="mt-4 text-sm text-muted-foreground">
+                1200 Industrial Ave
+                <br />
+                Detroit, MI
+              </p>
             </div>
           </div>
         </div>

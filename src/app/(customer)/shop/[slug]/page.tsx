@@ -7,12 +7,12 @@ import {
   fetchPublishedParts,
   fetchRelatedParts,
 } from "@/lib/catalog-fetch";
-import type { Part } from "@/lib/catalog/part";
+import { StorefrontStockBadge } from "@/components/site/storefront-stock-badge";
+import { type Part, isStorefrontAvailable } from "@/lib/catalog/part";
 import { resolvePartImageSrc } from "@/lib/catalog/resolve-part-image";
 import { CatalogPartImage } from "@/components/site/catalog-part-image";
 import { PageSection } from "@/components/site/page-section";
 import { ProductCard } from "@/components/site/product-card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ProductDetailActions } from "./product-detail-actions";
@@ -47,15 +47,16 @@ export default async function ProductPage({ params }: Props) {
 
   let related: Part[] = [];
   try {
-    related = await fetchRelatedParts(slug, 4);
+    related = await fetchRelatedParts(slug, 12);
   } catch {
     related = [];
   }
+  related = related.filter(isStorefrontAvailable).slice(0, 4);
 
   if (related.length === 0) {
     try {
       const pool = await fetchPublishedParts();
-      related = pool.filter((p) => p.slug !== slug).slice(0, 4);
+      related = pool.filter((p) => p.slug !== slug && isStorefrontAvailable(p)).slice(0, 4);
     } catch {
       related = [];
     }
@@ -110,17 +111,7 @@ export default async function ProductPage({ params }: Props) {
 
             <div className="flex flex-wrap items-center gap-3">
               <SarCurrency amount={part.price} className="text-3xl font-semibold text-foreground" />
-              {part.stockStatus === "in_stock" ? (
-                <Badge className="bg-secondary text-secondary-foreground">In stock</Badge>
-              ) : null}
-              {part.stockStatus === "low_stock" ? (
-                <Badge variant="outline" className="border-border">
-                  Low stock
-                </Badge>
-              ) : null}
-              {part.stockStatus === "out_of_stock" ? (
-                <Badge variant="destructive">Out of stock</Badge>
-              ) : null}
+              <StorefrontStockBadge part={part} size="lg" />
             </div>
 
             <ProductDetailActions part={part} />

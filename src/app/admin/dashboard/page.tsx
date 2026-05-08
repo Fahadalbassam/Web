@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Package, Tags, ClipboardList, Boxes } from "lucide-react";
+import { Package, Tags, ClipboardList, Boxes, CircleOff, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { fetchAllProductsAdmin } from "@/lib/catalog-fetch";
+import { isEffectivelyOutOfStock } from "@/lib/catalog/part";
 
 export default async function AdminDashboardPage() {
   let parts = [] as Awaited<ReturnType<typeof fetchAllProductsAdmin>>;
@@ -15,6 +16,7 @@ export default async function AdminDashboardPage() {
   }
 
   const lowStockCount = parts.filter((p) => p.stockStatus === "low_stock").length;
+  const outOfStockCount = parts.filter((p) => isEffectivelyOutOfStock(p)).length;
   const categoriesCount = new Set(parts.map((p) => p.category)).size;
   const unpublished = parts.filter((p) => p.published === false).length;
 
@@ -29,7 +31,7 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Card className="border-border">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between gap-2">
@@ -40,6 +42,18 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">All SKUs in database</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between gap-2">
+              <CardDescription>Out of stock</CardDescription>
+              <CircleOff className="size-4 text-destructive" />
+            </div>
+            <CardTitle className="text-3xl tabular-nums text-destructive">{outOfStockCount}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">Qty is zero — restock in Products</p>
           </CardContent>
         </Card>
         <Card className="border-border">
@@ -89,6 +103,12 @@ export default async function AdminDashboardPage() {
         <Button asChild variant="outline" className="border-border bg-card">
           <Link href="/admin/products">Manage products</Link>
         </Button>
+        <Button asChild variant="outline" className="border-border bg-card">
+          <Link href="/" className="inline-flex items-center gap-2">
+            <Home className="size-4" aria-hidden />
+            Home
+          </Link>
+        </Button>
       </div>
 
       <div>
@@ -106,7 +126,10 @@ export default async function AdminDashboardPage() {
                     {p.brand} · {p.category}
                   </p>
                 </div>
-                <Badge variant="outline" className="capitalize">
+                <Badge
+                  variant={p.stockStatus === "out_of_stock" ? "destructive" : "outline"}
+                  className="capitalize"
+                >
                   {p.stockStatus.replace("_", " ")}
                 </Badge>
               </li>

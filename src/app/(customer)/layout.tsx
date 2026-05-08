@@ -9,7 +9,7 @@ export default function CustomerLayout({
 }) {
   return (
     <CustomerProviders>
-      <div className="flex min-h-full min-w-0 flex-col overflow-x-hidden">
+      <div className="flex min-h-dvh min-w-0 flex-col overflow-x-hidden">
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />

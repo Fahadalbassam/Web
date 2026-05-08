@@ -72,6 +72,10 @@ function gp_json_headers(): void
 
 function gp_session_start(string $purpose = 'gp'): void
 {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        return;
+    }
+
     $secure = getenv('NODE_ENV') === 'production' || getenv('GP_COOKIE_SECURE') === '1';
 
     session_set_cookie_params([
@@ -82,9 +86,7 @@ function gp_session_start(string $purpose = 'gp'): void
         'samesite' => 'Lax',
     ]);
 
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-        session_start();
-    }
+    session_start();
 }
 
 /**

@@ -134,9 +134,22 @@
   }
   html {
     @apply overflow-x-hidden font-sans;
+    scrollbar-gutter: stable;
   }
   body {
     @apply overflow-x-hidden bg-background text-foreground antialiased;
+  }
+}
+
+/*
+ * Radix scroll lock (Dialog, Sheet, Select, etc.) measures scrollbar width and compensates on the body.
+ * With scrollbar-gutter: stable on html, that compensation stacks and the layout jumps horizontally.
+ * @see https://github.com/radix-ui/primitives/issues/3251#issuecomment-2563693788
+ */
+@supports (scrollbar-gutter: stable) {
+  html body[data-scroll-locked] {
+    --removed-body-scroll-bar-size: 0 !important;
+    margin-right: 0 !important;
   }
 }
 
@@ -161,7 +174,3 @@
   }
 }
 
-/* Radix Dialog sets overflow:hidden on the body; stable gutter avoids horizontal layout jump */
-html {
-  scrollbar-gutter: stable;
-}

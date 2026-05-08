@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
-import type { Part, StockStatus } from "@/lib/catalog/part";
+import { type Part, type StockStatus, isStorefrontAvailable } from "@/lib/catalog/part";
 import { ProductCard } from "@/components/site/product-card";
 import { EmptyState } from "@/components/site/empty-state";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
   PaginationItem,
 } from "@/components/ui/pagination";
 import { PageIntro } from "@/components/site/page-intro";
+import { ShopFiltersHelp } from "@/components/site/shop-filters-help";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 9;
@@ -30,7 +31,12 @@ const PAGE_SIZE = 9;
 type SortKey = "featured" | "price-asc" | "price-desc" | "name";
 
 function matchesStock(part: Part, stock: StockStatus | "all"): boolean {
-  if (stock === "all") return true;
+  if (stock === "all") {
+    return isStorefrontAvailable(part);
+  }
+  if (stock === "out_of_stock") {
+    return !isStorefrontAvailable(part);
+  }
   return part.stockStatus === stock;
 }
 
@@ -218,7 +224,7 @@ export function ShopCatalog({ parts }: { parts: Part[] }) {
             <SelectValue placeholder="Stock" />
           </SelectTrigger>
           <SelectContent className="border-border bg-popover">
-            <SelectItem value="all">Any</SelectItem>
+            <SelectItem value="all">Available</SelectItem>
             <SelectItem value="in_stock">In stock</SelectItem>
             <SelectItem value="low_stock">Low stock</SelectItem>
             <SelectItem value="out_of_stock">Out of stock</SelectItem>
@@ -261,10 +267,7 @@ export function ShopCatalog({ parts }: { parts: Part[] }) {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 md:py-14">
-      <PageIntro
-        title="Shop parts"
-        description="Live catalog — published parts from our inventory system."
-      />
+      <PageIntro title="Shop parts" />
 
       <div className="mt-8 flex flex-col gap-4 md:hidden">
         <div className="relative">
@@ -285,8 +288,9 @@ export function ShopCatalog({ parts }: { parts: Part[] }) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="border-border bg-popover">
-              <SheetHeader>
-                <SheetTitle>Filters</SheetTitle>
+              <SheetHeader className="flex-row items-center justify-between space-y-0 pr-10">
+                <SheetTitle className="text-left">Filters</SheetTitle>
+                <ShopFiltersHelp />
               </SheetHeader>
               <div className="mt-6">{filterControls}</div>
             </SheetContent>
@@ -307,6 +311,10 @@ export function ShopCatalog({ parts }: { parts: Part[] }) {
 
       <div className="mt-8 hidden gap-8 md:grid md:grid-cols-[240px_1fr] md:items-start">
         <aside className="sticky top-24 z-10 w-full max-w-[240px] self-start rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-2 border-b border-border pb-4">
+            <h2 className="text-sm font-semibold text-foreground">Filters</h2>
+            <ShopFiltersHelp />
+          </div>
           <div className="relative mb-5">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input

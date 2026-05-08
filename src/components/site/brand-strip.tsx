@@ -24,7 +24,7 @@ function usePrefersReducedMotion(): boolean {
 }
 
 const edgeMask =
-  "linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%)";
+  "linear-gradient(90deg, transparent 0%, black 8%, black 90%, transparent 100%)";
 
 function LogoSlot({
   src,
@@ -140,10 +140,14 @@ export function BrandStrip({ logos, className }: BrandStripProps) {
             </div>
           ) : (
             <div className="brand-strip-runner-animated flex w-max will-change-transform">
-              <div className="flex shrink-0 items-center gap-7 sm:gap-9 md:gap-11">
+              {/* Equal trailing padding on both halves keeps -50% loop math correct and offsets the duplicate seam. */}
+              <div className="flex shrink-0 items-center gap-7 pr-12 sm:gap-9 sm:pr-14 md:gap-11 md:pr-16">
                 <LogoRow logos={logos} keyPrefix="a" priorityFirst />
               </div>
-              <div className="flex shrink-0 items-center gap-7 sm:gap-9 md:gap-11" aria-hidden>
+              <div
+                className="flex shrink-0 items-center gap-7 pr-12 sm:gap-9 sm:pr-14 md:gap-11 md:pr-16"
+                aria-hidden
+              >
                 <LogoRow logos={logos} keyPrefix="b" />
               </div>
             </div>
