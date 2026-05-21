@@ -44,3 +44,6 @@ next-env.d.ts
 # PHP user uploads (keep directory via .gitkeep)
 /php/public/uploads/*
 !/php/public/uploads/.gitkeep
+
+# Composer PHAR (use global `composer install` in php/ — see README)
+/php/composer.phar
