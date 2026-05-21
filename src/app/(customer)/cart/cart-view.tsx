@@ -2,7 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import { effectiveStockQty } from "@/lib/catalog/part";
+import { QuantityStepper } from "@/components/site/quantity-stepper";
+import { clampQuantityToStock } from "@/lib/quantity-helper";
 import { PageIntro } from "@/components/site/page-intro";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -97,29 +100,19 @@ export function CartView() {
                   <p className="text-xs text-muted-foreground">
                     <SarCurrency amount={part.price} className="text-xs text-muted-foreground" /> each
                   </p>
-                  <div className="inline-flex items-center rounded-md border border-border bg-background">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-9 rounded-none"
-                      onClick={() => void setQuantity(cartKey, quantity - 1)}
-                      aria-label="Decrease quantity"
-                    >
-                      <Minus className="size-4" />
-                    </Button>
-                    <span className="min-w-9 text-center text-sm font-medium tabular-nums">{quantity}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-9 rounded-none"
-                      onClick={() => void setQuantity(cartKey, quantity + 1)}
-                      aria-label="Increase quantity"
-                    >
-                      <Plus className="size-4" />
-                    </Button>
-                  </div>
+                  <QuantityStepper
+                    quantity={quantity}
+                    stockQty={effectiveStockQty(part)}
+                    context="cart"
+                    size="sm"
+                    onDecrease={() => void setQuantity(cartKey, quantity - 1)}
+                    onIncrease={() =>
+                      void setQuantity(
+                        cartKey,
+                        clampQuantityToStock(quantity + 1, effectiveStockQty(part)),
+                      )
+                    }
+                  />
                   <SarCurrency
                     amount={part.price * quantity}
                     className="text-sm font-semibold text-foreground"

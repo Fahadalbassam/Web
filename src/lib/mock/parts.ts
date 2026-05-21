@@ -5,7 +5,6 @@ export type { Part, StockStatus } from "@/lib/catalog/part";
 const img = (seed: string) =>
   `https://picsum.photos/seed/carpart-${seed}/800/600`;
 
-/** Legacy demo catalog — not imported by live storefront/admin routes; catalog is PHP + MongoDB only. */
 export const mockParts: Part[] = [
   {
     id: "1",

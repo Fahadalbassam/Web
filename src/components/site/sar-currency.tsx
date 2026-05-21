@@ -6,9 +6,6 @@ type SarCurrencyProps = {
   symbolClassName?: string;
 };
 
-/**
- * SAR amount with the riyal mark from `public/images/ryal-symbol.svg` (symbol + numeric value).
- */
 export function SarCurrency({ amount, className, symbolClassName }: SarCurrencyProps) {
   return (
     <span className={cn("inline-flex items-center gap-1", className)} title={`${amount.toFixed(2)} SAR`}>

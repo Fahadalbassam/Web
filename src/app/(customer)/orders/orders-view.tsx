@@ -75,8 +75,7 @@ type BuyAgainRow = {
   slug: string;
   name: string;
   image: string;
-  /** Quantity from the most recent order that included this SKU. */
-  lastQuantity: number;
+    lastQuantity: number;
 };
 
 async function fetchOrderDetailClient(id: string): Promise<OrderDetail | null> {

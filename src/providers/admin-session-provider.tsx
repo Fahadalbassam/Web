@@ -25,8 +25,7 @@ export function AdminSessionProvider({ children }: { children: React.ReactNode }
         cache: "no-store",
       });
       const data = (await res.json().catch(() => ({}))) as { authenticated?: boolean };
-      // me.php returns 200 + { authenticated } for both guest and signed-in admin.
-      if (!res.ok) {
+            if (!res.ok) {
         setIsAdminAuthenticated(false);
         return;
       }
@@ -56,7 +55,6 @@ export function AdminSessionProvider({ children }: { children: React.ReactNode }
         credentials: "include",
       });
     } catch {
-      /* ignore */
     }
     setIsAdminAuthenticated(false);
     void refresh();

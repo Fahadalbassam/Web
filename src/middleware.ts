@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-/** `/admin/*`: checks PHP `auth/me.php` with cookies; guests / non-admins go to `/?login=1` or `/`. */
 function phpOrigin(): string {
   return process.env.PHP_BACKEND_URL ?? "http://127.0.0.1:8080";
 }

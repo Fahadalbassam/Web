@@ -7,14 +7,10 @@ export type StorefrontRole = "user" | "admin";
 
 type CustomerAuthContextValue = {
   isLoggedIn: boolean;
-  /** Mongo user id (hex string) when authenticated. */
-  userId: string | null;
-  /** Present after hydration when authenticated. */
-  role: StorefrontRole | null;
-  /** Display name for menu (email-based). */
-  userLabel: string;
-  /** Raw email when signed in (for menu subtitle). */
-  userEmail: string | null;
+    userId: string | null;
+    role: StorefrontRole | null;
+    userLabel: string;
+    userEmail: string | null;
   hydrated: boolean;
   refresh: () => Promise<void>;
   loginWithCredentials: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
@@ -127,7 +123,6 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
         credentials: "include",
       });
     } catch {
-      /* ignore */
     }
     setUserId(null);
     setEmail(null);

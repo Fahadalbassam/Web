@@ -62,3 +62,74 @@ Mongodb collection:
 
 ER diagram: 
 <img width="1600" height="1499" alt="image" src="https://github.com/user-attachments/assets/4564803b-7357-428e-a5c0-d337469b8f4f" />
+
+## Final Code Cleanup
+
+A final pass was done to make the repo submission-ready without changing storefront or admin behavior.
+
+### Areas cleaned
+
+- **`src/`** — Removed developer comments (`//`, `/* */`, JSX `{/* */}`) from application TypeScript/TSX; stripped leftover no-op JSX from the hero carousel.
+- **Unused modules** — Deleted legacy mock catalog files, unused MongoDB helper/types under `src/lib/db`, and unused shadcn UI wrappers (`navigation-menu`, `tabs`, `sonner`).
+- **Repo clutter** — Removed `_curl-cart.txt` (local curl cookie dump) and default Next.js SVGs under `public/` that were not referenced by the UI.
+- **`package.json`** — Dropped direct dependencies that were unused after file removal (`sonner`, redundant `@radix-ui/react-*` packages; UI still uses the unified `radix-ui` package).
+
+### What was removed
+
+- Legacy **`src/lib/mock/parts.ts`** and **`src/lib/mock/brands.ts`** (live catalog is PHP + MongoDB only).
+- Unused **`src/lib/mongodb.ts`** and **`src/lib/db/*`** TypeScript helpers (Node seed/index scripts talk to MongoDB directly).
+- Unused UI components and temporary/debug artifacts listed above.
+- Developer comments and debug-only logging in `src/` (no `console.log` / `debugger` in application code; CLI scripts under `scripts/` still print status messages).
+
+### Required features preserved
+
+All assignment flows remain wired as before:
+
+- Storefront: home, shop listing, product detail (`/shop/[slug]`), cart, checkout, orders, settings, register, **contact/support** (`/support`).
+- Admin: login, dashboard, product list/add/edit/delete/search, orders, support tickets.
+- Backend: PHP endpoints under `php/public/`, Next rewrite to `/backend/*`, PHP session cart, customer and admin auth, checkout → MongoDB orders.
+- Data/assets: `public/images/`, brand logos, hero slide config (`src/lib/mock/hero-slides.ts`), seed/index scripts (`scripts/seed-admins.mjs`, `scripts/ensure-indexes.mjs`).
+
+### Validation
+
+From the project root:
+
+```bash
+npm install
+npm run lint
+npx tsc --noEmit
+npm run build
+```
+
+- **Lint:** `npm run lint` — passed.
+- **Typecheck:** `npx tsc --noEmit` — passed.
+- **Build:** `npm run build` — passed (all App Router routes compiled).
+
+End-to-end flows (browse → cart → checkout → order, admin CRUD) require **`npm run dev:full`** (or separate Next + PHP servers) and a configured **`.env.local`** with **`MONGODB_URI`**; those were verified by code review against existing PHP routes and UI pages, not re-run as a full manual QA session in this cleanup pass.
+
+## Quantity Limit UX Helper
+
+Shared quantity rules live in **`src/lib/quantity-helper.ts`** (`canIncreaseQuantity`, `canDecreaseQuantity`, limit messages, and `validateAddToCart`). UI uses **`QuantityStepper`** (`src/components/site/quantity-stepper.tsx`) with shadcn **Tooltip** on disabled +/- buttons (wrapped in a span so hover works when the button is disabled).
+
+### Where it is used
+
+- **Product detail** — `product-detail-actions.tsx`: min qty 1, max = `stockQty`, out-of-stock message, add-to-cart validation against cart + stock.
+- **Cart** — `cart-view.tsx`: same min/max rules; at qty 1 the minus control is disabled with a message pointing users to **Remove**.
+- **Shop cards** — `product-card-add-to-cart.tsx`: blocks add when cart already holds max stock (tooltip notice).
+
+### Stock and minimum quantity
+
+- Minimum order quantity is **1** everywhere; quantity cannot drop below 1 via minus (use **Remove** on the cart page).
+- When `stockQty` is known, plus is disabled at stock and shows: *Only N item(s) available in stock.*
+- Add-to-cart checks existing cart quantity first; at max it shows: *You already have the maximum available quantity in your cart.*
+- Out-of-stock SKUs show *This product is currently out of stock.* and disable stepper + add actions.
+
+### Testing
+
+Verified with `npx tsc --noEmit` and `npm run build`. Manual checks (with `npm run dev:full`):
+
+- PDP minus at qty 1 → helper, qty stays 1.
+- PDP plus at stock max → helper, qty stays at max.
+- Cart minus at qty 1 → helper; **Remove** still deletes the line.
+- Cart plus at stock max → helper; subtotal and header cart badge still update after valid changes.
+- Add-to-cart from PDP/cards does not exceed stock when the SKU is already in the cart.

@@ -16,11 +16,6 @@ export type CatalogPartImageProps = {
   priority?: boolean;
 };
 
-/**
- * Storefront part images: PHP serves `/uploads/*` under `/backend/*`. Missing files on disk
- * are common in dev (uploads not in git). Skip the image optimizer for those URLs so 404s
- * do not spam the Next dev server, and fall back to the placeholder after a failed load.
- */
 export function CatalogPartImage({
   src,
   alt,

@@ -4,10 +4,6 @@ import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useStorefrontAuthModal } from "@/providers/storefront-auth-modal-provider";
 
-/**
- * Opens the storefront login modal when middleware or links send users to `/?login=1`
- * (admin routes redirect guests here instead of a separate admin login screen).
- */
 export function StorefrontAuthDeepLinkOpener() {
   const searchParams = useSearchParams();
   const router = useRouter();

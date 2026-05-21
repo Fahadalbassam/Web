@@ -3,9 +3,6 @@ import { LOW_STOCK_QTY_MAX, effectiveStockQty } from "@/lib/catalog/part";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-/**
- * Storefront availability label: shows “N left” when `stockQty` is present; legacy “In stock” / “Low stock” otherwise.
- */
 export function StorefrontStockBadge({
   part,
   className,
@@ -13,8 +10,7 @@ export function StorefrontStockBadge({
 }: {
   part: Part;
   className?: string;
-  /** PDP uses slightly larger chrome */
-  size?: "default" | "lg";
+    size?: "default" | "lg";
 }) {
   const qty = effectiveStockQty(part);
   const lowCls =

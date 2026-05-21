@@ -1,4 +1,3 @@
-/** Shared helpers for homepage brand logo strip (safe for client + server). */
 
 export function brandLabelFromPublicPath(publicPath: string): string {
   const file = publicPath.split("/").pop() ?? "";

@@ -1,15 +1,12 @@
 import type { LucideIcon } from "lucide-react";
 import { Car, CircleDot, Cog, Gauge, Wrench } from "lucide-react";
 
-/** Legacy placeholder marks — homepage strip now uses files under `public/images/brandlogos/` via `BrandStrip`. */
 export type BrandMarkDef = {
   id: string;
-  /** Reserved for real logos and a11y; not shown as the primary visual. */
-  name: string;
+    name: string;
   Icon: LucideIcon;
 };
 
-/** Slot order matches intended OEM/aftermarket logos (Toyota … Audi). */
 export const coveredBrandMarks: BrandMarkDef[] = [
   { id: "toyota", name: "Toyota", Icon: Car },
   { id: "hyundai", name: "Hyundai", Icon: Cog },

@@ -2,8 +2,7 @@ import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
 type PageSectionProps = ComponentProps<"section"> & {
-  /** Tighter vertical rhythm for dense stacks */
-  density?: "comfortable" | "compact";
+    density?: "comfortable" | "compact";
 };
 
 export function PageSection({

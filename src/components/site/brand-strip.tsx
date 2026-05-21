@@ -6,8 +6,7 @@ import { cn } from "@/lib/utils";
 import { brandLabelFromPublicPath } from "@/lib/brand-logo-utils";
 
 type BrandStripProps = {
-  /** Public paths e.g. `/images/brandlogos/toyota.png` — filled by the homepage from disk. */
-  logos: string[];
+    logos: string[];
   className?: string;
 };
 
@@ -115,7 +114,7 @@ export function BrandStrip({ logos, className }: BrandStripProps) {
         WebkitMaskImage: edgeMask,
       }}
     >
-      {/* Shallow “floor” + Y rotation: left reads slightly farther, right slightly nearer. */}
+      
       <div
         className="mx-auto max-w-6xl overflow-x-hidden perspective-[1180px]"
         style={{ perspectiveOrigin: "50% 55%" }}
@@ -140,7 +139,7 @@ export function BrandStrip({ logos, className }: BrandStripProps) {
             </div>
           ) : (
             <div className="brand-strip-runner-animated flex w-max will-change-transform">
-              {/* Equal trailing padding on both halves keeps -50% loop math correct and offsets the duplicate seam. */}
+              
               <div className="flex shrink-0 items-center gap-7 pr-12 sm:gap-9 sm:pr-14 md:gap-11 md:pr-16">
                 <LogoRow logos={logos} keyPrefix="a" priorityFirst />
               </div>

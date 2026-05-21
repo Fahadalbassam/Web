@@ -16,8 +16,7 @@ import { useCustomerAuth } from "@/providers/customer-auth-provider";
 type AuthModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Called after successful login or register (e.g. checkout resume). */
-  onLoginSuccess?: () => void;
+    onLoginSuccess?: () => void;
 };
 
 type Mode = "login" | "register";

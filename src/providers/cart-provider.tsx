@@ -8,14 +8,12 @@ import { phpBrowserUrl } from "@/lib/php-backend";
 export type CartLine = {
   part: Part;
   quantity: number;
-  /** Session cart key from PHP (`cart/get.php`) — use for update/remove when present. */
-  cartSlug?: string;
+    cartSlug?: string;
 };
 
 type CartContextValue = {
   lines: CartLine[];
-  /** True after first PHP cart sync (session may be empty). */
-  hydrated: boolean;
+    hydrated: boolean;
   add: (part: Part, quantity?: number) => Promise<void>;
   setQuantity: (cartKey: string, quantity: number) => Promise<void>;
   remove: (cartKey: string) => Promise<void>;
@@ -51,13 +49,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Re-fetch when the user navigates (e.g. PDP → /cart) so the UI matches the PHP session without a full reload.
-  React.useEffect(() => {
+    React.useEffect(() => {
     void refresh();
   }, [pathname, refresh]);
 
-  // Re-sync session cart after storefront login/register (same PHP session; keeps UI aligned if identity changed).
-  React.useEffect(() => {
+    React.useEffect(() => {
     const onAuthChange = () => void refresh();
     window.addEventListener("gp-cart-refresh", onAuthChange);
     return () => window.removeEventListener("gp-cart-refresh", onAuthChange);
@@ -75,7 +71,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         });
         await res.json().catch(() => ({}));
       } catch {
-        /* network — still refresh to avoid stale badge */
       } finally {
         await refresh();
       }

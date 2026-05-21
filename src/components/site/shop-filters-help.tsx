@@ -11,9 +11,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-/**
- * Opens an instructional dialog — satisfies “help window” style UX for the shop filter panel.
- */
 export function ShopFiltersHelp() {
   return (
     <Dialog>
